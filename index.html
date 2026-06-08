@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f1115" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FitTrack" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>FitTrack</title>
+</head>
+<body>
+  <div id="app">
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="header-row">
+        <h1 id="screen-title">Today</h1>
+        <button id="date-prev" class="icon-btn" aria-label="Previous day">‹</button>
+        <span id="date-label" class="date-label">Today</span>
+        <button id="date-next" class="icon-btn" aria-label="Next day">›</button>
+      </div>
+    </header>
+
+    <!-- MAIN SCROLL AREA -->
+    <main id="main">
+
+      <!-- ============ DASHBOARD ============ -->
+      <section class="screen" id="screen-dashboard">
+        <div class="card calorie-card">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 120 120" class="ring">
+              <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+              <circle class="ring-fg" id="cal-ring" cx="60" cy="60" r="52"></circle>
+            </svg>
+            <div class="ring-center">
+              <span class="ring-num" id="cal-remaining">0</span>
+              <span class="ring-sub">kcal left</span>
+            </div>
+          </div>
+          <div class="cal-breakdown">
+            <div><span class="b-num" id="cal-goal">0</span><span class="b-lbl">Goal</span></div>
+            <div><span class="b-num" id="cal-eaten">0</span><span class="b-lbl">Eaten</span></div>
+            <div><span class="b-num" id="cal-burned">0</span><span class="b-lbl">Burned</span></div>
+          </div>
+        </div>
+
+        <div class="macro-row">
+          <div class="macro" data-macro="protein"><div class="macro-bar"><span></span></div><b id="m-protein">0g</b><small>Protein</small></div>
+          <div class="macro" data-macro="carbs"><div class="macro-bar"><span></span></div><b id="m-carbs">0g</b><small>Carbs</small></div>
+          <div class="macro" data-macro="fat"><div class="macro-bar"><span></span></div><b id="m-fat">0g</b><small>Fat</small></div>
+        </div>
+
+        <div class="card week-card" id="week-card"></div>
+
+        <h2 class="section-h">Today's Activity</h2>
+        <div id="dash-workout" class="card-list"></div>
+
+        <h2 class="section-h">Today's Meals</h2>
+        <div id="dash-meals" class="card-list"></div>
+      </section>
+
+      <!-- ============ WORKOUTS ============ -->
+      <section class="screen hidden" id="screen-workouts">
+        <div id="workout-list" class="card-list"></div>
+        <div class="btn-row">
+          <button class="primary-btn" id="add-workout-btn">+ Gym</button>
+          <button class="primary-btn alt" id="add-cardio-btn">+ Cardio</button>
+        </div>
+      </section>
+
+      <!-- ============ PROGRESS ============ -->
+      <section class="screen hidden" id="screen-progress">
+        <div id="progress-body"></div>
+        <button class="primary-btn" id="log-weight-btn">+ Log Weight</button>
+      </section>
+
+      <!-- ============ EXPENSES ============ -->
+      <section class="screen hidden" id="screen-expenses">
+        <div class="month-nav">
+          <button id="exp-prev" class="icon-btn" aria-label="Previous month">‹</button>
+          <span id="exp-month-label"></span>
+          <button id="exp-next" class="icon-btn" aria-label="Next month">›</button>
+        </div>
+        <div id="expenses-body"></div>
+        <div class="btn-row">
+          <button class="primary-btn" id="add-expense-btn">+ Add Expense</button>
+          <button class="primary-btn alt2" id="add-income-btn">+ Earning</button>
+        </div>
+      </section>
+
+      <!-- ============ NUTRITION ============ -->
+      <section class="screen hidden" id="screen-nutrition">
+        <div class="card summary-mini">
+          <div><b id="nut-eaten">0</b><small>kcal eaten</small></div>
+          <div><b id="nut-count">0</b><small>meals</small></div>
+        </div>
+        <div id="meal-list" class="card-list"></div>
+        <button class="primary-btn" id="add-meal-btn">+ Log Food</button>
+      </section>
+
+      <!-- ============ PROFILE ============ -->
+      <section class="screen hidden" id="screen-profile">
+        <div class="card">
+          <h2 class="section-h" style="margin-top:0">Weight goal</h2>
+          <div class="grid3">
+            <label class="field"><span>Start kg</span><input type="number" id="p-start" inputmode="decimal" /></label>
+            <label class="field"><span>Current kg</span><input type="number" id="p-weight" inputmode="decimal" /></label>
+            <label class="field"><span>Target kg</span><input type="number" id="p-target" inputmode="decimal" /></label>
+          </div>
+          <label class="field"><span>Weekly loss rate (kg / week)</span><input type="number" id="p-rate" inputmode="decimal" step="0.1" /></label>
+          <div id="plan-readout" class="plan-readout"></div>
+        </div>
+
+        <div class="card">
+          <h2 class="section-h" style="margin-top:0">Daily nutrition goals</h2>
+          <label class="field"><span>Daily calorie goal (kcal)</span><input type="number" id="p-cal-goal" inputmode="numeric" /></label>
+          <button class="ghost-btn" id="suggest-cal-btn">Use suggested calories</button>
+          <div class="grid3" style="margin-top:14px">
+            <label class="field"><span>Protein g</span><input type="number" id="p-protein" inputmode="numeric" /></label>
+            <label class="field"><span>Carbs g</span><input type="number" id="p-carbs" inputmode="numeric" /></label>
+            <label class="field"><span>Fat g</span><input type="number" id="p-fat" inputmode="numeric" /></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="section-h" style="margin-top:0">Weekly targets</h2>
+          <label class="field"><span>Cardio minutes / week</span><input type="number" id="p-cardio-goal" inputmode="numeric" /></label>
+          <label class="field"><span>Steps / day</span><input type="number" id="p-steps-goal" inputmode="numeric" /></label>
+          <label class="field"><span>Strength sessions / week</span><input type="number" id="p-strength-goal" inputmode="numeric" /></label>
+        </div>
+
+        <button class="primary-btn" id="save-profile-btn">Save Goals</button>
+
+        <div class="card" style="margin-top:14px">
+          <h2 class="section-h" style="margin-top:0">Cloud sync (laptop + phone)</h2>
+          <div id="sync-status" class="muted small" style="margin-bottom:10px"></div>
+          <div id="sync-config">
+            <label class="field"><span>Supabase URL</span><input type="text" id="sb-url" placeholder="https://xxxx.supabase.co" autocomplete="off" /></label>
+            <label class="field"><span>Supabase anon key</span><input type="text" id="sb-key" placeholder="eyJhbGci…" autocomplete="off" /></label>
+            <button class="ghost-btn" id="sb-save-config">Save connection</button>
+          </div>
+          <div id="sync-auth" class="hidden">
+            <label class="field"><span>Email</span><input type="email" id="sb-email" autocomplete="username" /></label>
+            <label class="field"><span>Password</span><input type="password" id="sb-pass" autocomplete="current-password" /></label>
+            <div class="btn-row">
+              <button class="primary-btn" id="sb-signin">Sign in</button>
+              <button class="primary-btn alt" id="sb-signup">Sign up</button>
+            </div>
+          </div>
+          <div id="sync-account" class="hidden">
+            <button class="ghost-btn" id="sb-syncnow">Sync now</button>
+            <button class="ghost-btn" id="sb-signout">Sign out</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <h2 class="section-h" style="margin-top:0">Data</h2>
+          <button class="ghost-btn" id="export-btn">Export my data (backup)</button>
+          <button class="ghost-btn" id="import-btn">Import data</button>
+          <input type="file" id="import-file" accept="application/json" hidden />
+          <button class="ghost-btn danger" id="reset-btn">Erase all data</button>
+        </div>
+        <p class="version-note">FitTrack · all data stored only on this device</p>
+      </section>
+    </main>
+
+    <!-- BOTTOM NAV -->
+    <nav class="tabbar">
+      <button class="tab active" data-screen="dashboard"><span class="ico">◉</span><small>Today</small></button>
+      <button class="tab" data-screen="workouts"><span class="ico">🏋</span><small>Workouts</small></button>
+      <button class="tab" data-screen="nutrition"><span class="ico">🍎</span><small>Food</small></button>
+      <button class="tab" data-screen="progress"><span class="ico">📈</span><small>Progress</small></button>
+      <button class="tab" data-screen="expenses"><span class="ico">💸</span><small>Spend</small></button>
+      <button class="tab" data-screen="profile"><span class="ico">⚙</span><small>Goals</small></button>
+    </nav>
+  </div>
+
+  <!-- ============ MODAL: WORKOUT ============ -->
+  <div class="modal-backdrop hidden" id="workout-modal">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="link-btn" data-close>Cancel</button>
+        <b id="workout-modal-title">Log Gym</b>
+        <button class="link-btn strong" id="save-workout">Save</button>
+      </div>
+      <div class="sheet-body">
+        <span class="seg-label">Type</span>
+        <div class="seg seg-wrap" id="w-type-seg">
+          <button type="button" data-type="Push" class="active">Push</button>
+          <button type="button" data-type="Pull">Pull</button>
+          <button type="button" data-type="Legs">Legs</button>
+          <button type="button" data-type="Functional">Functional</button>
+          <button type="button" data-type="Abs">Abs</button>
+          <button type="button" data-type="Full body">Full body</button>
+        </div>
+        <datalist id="exercise-list"></datalist>
+        <div id="exercise-editor"></div>
+        <button class="ghost-btn" id="add-exercise">+ Add exercise</button>
+        <label class="field"><span>Calories burned (auto · editable)</span><input type="number" id="w-burned" inputmode="numeric" placeholder="0" /></label>
+        <p class="ex-sub" id="w-burn-hint"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: MEAL ============ -->
+  <div class="modal-backdrop hidden" id="meal-modal">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="link-btn" data-close>Cancel</button>
+        <b id="meal-modal-title">Log Food</b>
+        <button class="link-btn strong" id="save-meal">Save</button>
+      </div>
+      <div class="sheet-body">
+        <div class="seg" id="meal-type-seg">
+          <button data-type="Breakfast" class="active">Breakfast</button>
+          <button data-type="Lunch">Lunch</button>
+          <button data-type="Dinner">Dinner</button>
+          <button data-type="Snack">Snack</button>
+        </div>
+        <label class="field"><span>Search food (auto-fills calories)</span><input type="text" id="f-search" placeholder="e.g. chicken, banana, rice" autocomplete="off" /></label>
+        <div id="f-results" class="food-results"></div>
+        <div id="f-qty-wrap" class="qty-row hidden">
+          <label class="field"><span>Quantity</span><input type="number" id="f-qty" inputmode="decimal" /></label>
+          <span class="qty-unit" id="f-unit"></span>
+        </div>
+        <label class="field"><span>Food</span><input type="text" id="f-name" placeholder="e.g. Chicken & rice" /></label>
+        <label class="field"><span>Calories (kcal)</span><input type="number" id="f-cal" inputmode="numeric" placeholder="0" /></label>
+        <div class="grid3">
+          <label class="field"><span>Protein g</span><input type="number" id="f-protein" inputmode="numeric" placeholder="0" /></label>
+          <label class="field"><span>Carbs g</span><input type="number" id="f-carbs" inputmode="numeric" placeholder="0" /></label>
+          <label class="field"><span>Fat g</span><input type="number" id="f-fat" inputmode="numeric" placeholder="0" /></label>
+        </div>
+        <button class="ghost-btn" id="add-another-meal" type="button">+ Add another item</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CARDIO ============ -->
+  <div class="modal-backdrop hidden" id="cardio-modal">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="link-btn" data-close>Cancel</button>
+        <b id="cardio-modal-title">Log Cardio</b>
+        <button class="link-btn strong" id="save-cardio">Save</button>
+      </div>
+      <div class="sheet-body">
+        <div class="chips" id="c-presets">
+          <button type="button" data-steps="1300">🚶 Office walk</button>
+          <button type="button" data-steps="2500">🌆 Evening walk</button>
+          <button type="button" data-steps="1000">🛍 Errands</button>
+        </div>
+        <label class="field"><span>Activity</span><select id="c-type" class="select"></select></label>
+        <label class="field"><span>Duration (minutes)</span><input type="number" id="c-min" inputmode="numeric" placeholder="30" /></label>
+        <label class="field"><span>Steps (for walks — optional)</span><input type="number" id="c-steps" inputmode="numeric" placeholder="e.g. 1500" /></label>
+        <label class="field"><span>Calories burned</span><input type="number" id="c-burned" inputmode="numeric" placeholder="auto" /></label>
+        <p class="ex-sub" id="c-hint">Enter minutes, or steps for a walk.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: WEIGHT ============ -->
+  <div class="modal-backdrop hidden" id="weight-modal">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="link-btn" data-close>Cancel</button>
+        <b>Log Weight</b>
+        <button class="link-btn strong" id="save-weight">Save</button>
+      </div>
+      <div class="sheet-body">
+        <label class="field"><span>Date</span><input type="date" id="wt-date" class="select" /></label>
+        <label class="field"><span>Weight (kg)</span><input type="number" id="wt-kg" inputmode="decimal" step="0.1" placeholder="0" /></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: EXPENSE ============ -->
+  <div class="modal-backdrop hidden" id="expense-modal">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="link-btn" data-close>Cancel</button>
+        <b id="expense-modal-title">Add Expense</b>
+        <button class="link-btn strong" id="save-expense">Save</button>
+      </div>
+      <div class="sheet-body">
+        <span class="seg-label">Category</span>
+        <div class="seg" id="e-cat-seg">
+          <button type="button" data-cat="Travel" class="active">Travel</button>
+          <button type="button" data-cat="Randoms">Randoms</button>
+          <button type="button" data-cat="Sports">Sports</button>
+        </div>
+        <div id="e-sub-wrap">
+          <span class="seg-label">Travel type</span>
+          <div class="seg seg-wrap" id="e-sub-seg"></div>
+        </div>
+        <label class="field"><span>Amount (₹)</span><input type="number" id="e-amount" inputmode="decimal" placeholder="0" /></label>
+        <label class="field"><span>Note (optional)</span><input type="text" id="e-note" placeholder="e.g. metro to work" /></label>
+        <label class="field"><span>Date</span><input type="date" id="e-date" class="select" /></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: EARNING ============ -->
+  <div class="modal-backdrop hidden" id="income-modal">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="link-btn" data-close>Cancel</button>
+        <b id="income-modal-title">Add Earning</b>
+        <button class="link-btn strong" id="save-income">Save</button>
+      </div>
+      <div class="sheet-body">
+        <label class="field"><span>Amount earned (₹)</span><input type="number" id="i-amount" inputmode="decimal" placeholder="0" /></label>
+        <label class="field"><span>Note (optional)</span><input type="text" id="i-note" placeholder="e.g. salary, freelance" /></label>
+        <label class="field"><span>Date</span><input type="date" id="i-date" class="select" /></label>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>

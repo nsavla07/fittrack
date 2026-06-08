@@ -1,0 +1,1645 @@
+/* ============================================================
+   FitTrack — gym + calorie tracker PWA
+   All data lives in localStorage on this device only.
+============================================================ */
+
+const STORE_KEY = "fittrack_v1";
+
+const DEFAULT_DATA = {
+  goals: {
+    calories: 1800, protein: 120, carbs: 180, fat: 60, weight: 75,
+    startWeight: 75, targetWeight: 65, weeklyRate: 0.5,
+    cardioGoal: 175, stepsGoal: 9000, strengthGoal: 3,
+  },
+  days: {},     // { "2026-06-01": { workouts: [], meals: [], cardio: [] } }
+  weights: [],  // [{ date: "2026-06-01", kg: 75 }]
+  expenses: [], // [{ id, date: "2026-06-01", amount, category, sub, note }]
+  currency: "₹",
+};
+
+const EXPENSE_CATEGORIES = ["Travel", "Randoms", "Sports"];
+const TRAVEL_SUBS = ["Metro", "Bus", "Auto", "Other"];
+
+/* cardio activities + MET values for calorie estimation */
+const CARDIO_OPTIONS = [
+  { name: "Walking (brisk)", met: 4.3 },
+  { name: "Jogging", met: 7.0 },
+  { name: "Running", met: 9.8 },
+  { name: "Cycling", met: 7.5 },
+  { name: "Swimming", met: 7.0 },
+  { name: "Rowing", met: 7.0 },
+  { name: "Elliptical", met: 5.0 },
+  { name: "Stair climber", met: 8.0 },
+  { name: "HIIT", met: 8.0 },
+  { name: "Jump rope", met: 11.0 },
+  { name: "Dancing", met: 5.0 },
+  { name: "Yoga", met: 3.0 },
+  { name: "Pilates", met: 3.0 },
+];
+
+/* exercises grouped by workout type — the picker prioritises the chosen day's moves */
+const EXERCISES_BY_TYPE = {
+  Push: [
+    "Bench press", "Incline bench press", "Dumbbell press", "Incline dumbbell press",
+    "Chest fly", "Cable crossover", "Push-up", "Dips (chest)",
+    "Overhead press", "Dumbbell shoulder press", "Arnold press", "Lateral raise",
+    "Front raise", "Tricep pushdown", "Tricep extension", "Skull crusher", "Dips (triceps)",
+  ],
+  Pull: [
+    "Deadlift", "Pull-up", "Chin-up", "Lat pulldown", "Barbell row", "Dumbbell row",
+    "Seated cable row", "T-bar row", "Face pull", "Rear delt fly", "Shrug", "Upright row",
+    "Bicep curl", "Hammer curl", "Preacher curl", "Concentration curl",
+  ],
+  Legs: [
+    "Squat", "Front squat", "Leg press", "Lunge", "Bulgarian split squat",
+    "Leg extension", "Leg curl", "Calf raise", "Hip thrust", "Goblet squat", "Romanian deadlift",
+  ],
+  Functional: [
+    "Burpee", "Kettlebell swing", "Box jump", "Battle ropes", "Farmer's carry",
+    "Clean and press", "Thruster", "Wall ball", "Jump squat", "Jumping jacks", "Mountain climber",
+  ],
+  Abs: [
+    "Plank", "Crunch", "Sit-up", "Leg raise", "Hanging leg raise",
+    "Russian twist", "Bicycle crunch", "Cable crunch", "Ab rollout",
+  ],
+};
+// full flat list (every exercise, de-duplicated) — used for "Full body" and as fallback
+const EXERCISES = [...new Set([].concat(...Object.values(EXERCISES_BY_TYPE)))];
+
+/* ============================================================
+   FOOD DATABASE (offline)
+   Each entry: nutrition for `base` amount of `unit`.
+   unit "g"/"ml" use base 100; everything else uses base 1 (a count).
+   cal/p/c/f = kcal, protein g, carbs g, fat g for that base amount.
+============================================================ */
+const FOODS = [
+  // proteins (vegetarian)
+  { n: "Paneer", unit: "g", base: 100, cal: 265, p: 18, c: 1.2, f: 21 },
+  { n: "Tofu (firm)", unit: "g", base: 100, cal: 144, p: 15, c: 3, f: 9 },
+  { n: "Soya chunks (cooked)", unit: "g", base: 100, cal: 145, p: 14, c: 9, f: 0.5 },
+  { n: "Tempeh", unit: "g", base: 100, cal: 192, p: 20, c: 8, f: 11 },
+  { n: "Greek yogurt (non-fat)", unit: "g", base: 100, cal: 59, p: 10, c: 3.6, f: 0.4 },
+  { n: "Cottage cheese (low-fat)", unit: "g", base: 100, cal: 72, p: 12, c: 3, f: 1 },
+  { n: "Whey protein", unit: "scoop (30g)", base: 1, cal: 120, p: 24, c: 3, f: 1.5 },
+  { n: "Lentils (cooked)", unit: "g", base: 100, cal: 116, p: 9, c: 20, f: 0.4 },
+  { n: "Chickpeas (cooked)", unit: "g", base: 100, cal: 164, p: 9, c: 27, f: 2.6 },
+  { n: "Black beans (cooked)", unit: "g", base: 100, cal: 132, p: 9, c: 24, f: 0.5 },
+  { n: "Kidney beans (cooked)", unit: "g", base: 100, cal: 127, p: 9, c: 22, f: 0.5 },
+  { n: "Edamame", unit: "g", base: 100, cal: 121, p: 12, c: 9, f: 5 },
+  // grains / carbs
+  { n: "White rice (cooked)", unit: "g", base: 100, cal: 130, p: 2.7, c: 28, f: 0.3 },
+  { n: "Brown rice (cooked)", unit: "g", base: 100, cal: 123, p: 2.7, c: 26, f: 1 },
+  { n: "Pasta (cooked)", unit: "g", base: 100, cal: 158, p: 6, c: 31, f: 0.9 },
+  { n: "Quinoa (cooked)", unit: "g", base: 100, cal: 120, p: 4.4, c: 21, f: 1.9 },
+  { n: "Couscous (cooked)", unit: "g", base: 100, cal: 112, p: 3.8, c: 23, f: 0.2 },
+  { n: "Oats (dry)", unit: "g", base: 100, cal: 389, p: 17, c: 66, f: 7 },
+  { n: "Potato (boiled)", unit: "g", base: 100, cal: 87, p: 2, c: 20, f: 0.1 },
+  { n: "Sweet potato (cooked)", unit: "g", base: 100, cal: 90, p: 2, c: 21, f: 0.1 },
+  { n: "Bread (slice)", unit: "slice", base: 1, cal: 80, p: 4, c: 14, f: 1 },
+  { n: "Tortilla / wrap", unit: "tortilla", base: 1, cal: 150, p: 4, c: 24, f: 3.5 },
+  { n: "Bagel", unit: "bagel", base: 1, cal: 250, p: 10, c: 49, f: 1.5 },
+  { n: "Cornflakes", unit: "g", base: 100, cal: 357, p: 7, c: 84, f: 0.9 },
+  // everyday meals & basics (per serving — no weighing needed)
+  { n: "Avocado toast", unit: "toast", base: 1, cal: 200, p: 5, c: 20, f: 12 },
+  { n: "Peanut butter toast", unit: "toast", base: 1, cal: 190, p: 7, c: 19, f: 10 },
+  { n: "Oatmeal bowl", unit: "bowl", base: 1, cal: 160, p: 6, c: 27, f: 3.5 },
+  { n: "Oats with milk (~50g + 250ml)", unit: "bowl", base: 1, cal: 320, p: 14, c: 45, f: 9 },
+  { n: "Greek yogurt & fruit bowl", unit: "bowl", base: 1, cal: 180, p: 12, c: 24, f: 3 },
+  { n: "Fruit smoothie", unit: "glass", base: 1, cal: 180, p: 4, c: 38, f: 2 },
+  { n: "Banana smoothie", unit: "glass", base: 1, cal: 220, p: 6, c: 40, f: 4 },
+  { n: "Oats & milk smoothie (~50g + 250ml)", unit: "glass", base: 1, cal: 330, p: 15, c: 46, f: 10 },
+  { n: "Smoothie (no banana)", unit: "glass", base: 1, cal: 160, p: 5, c: 28, f: 3 },
+  { n: "Veggie sandwich", unit: "sandwich", base: 1, cal: 250, p: 9, c: 35, f: 8 },
+  { n: "Salad bowl", unit: "bowl", base: 1, cal: 120, p: 4, c: 12, f: 6 },
+  { n: "Roti / chapati", unit: "roti", base: 1, cal: 100, p: 3, c: 18, f: 3 },
+  { n: "Naan", unit: "naan", base: 1, cal: 260, p: 9, c: 48, f: 5 },
+  { n: "Plain rice bowl", unit: "bowl", base: 1, cal: 200, p: 4, c: 44, f: 0.5 },
+  { n: "Veg pulao / fried rice", unit: "bowl", base: 1, cal: 290, p: 6, c: 45, f: 9 },
+  { n: "Dal (lentil curry)", unit: "bowl", base: 1, cal: 180, p: 9, c: 22, f: 6 },
+  { n: "Rajma (kidney beans)", unit: "bowl", base: 1, cal: 220, p: 10, c: 30, f: 6 },
+  { n: "Chole (chickpeas)", unit: "bowl", base: 1, cal: 260, p: 11, c: 33, f: 9 },
+  { n: "Paneer butter masala", unit: "bowl", base: 1, cal: 340, p: 14, c: 12, f: 27 },
+  { n: "Mixed vegetable curry", unit: "bowl", base: 1, cal: 180, p: 5, c: 15, f: 11 },
+  { n: "Idli", unit: "idli", base: 1, cal: 40, p: 1.6, c: 8, f: 0.2 },
+  { n: "Plain dosa", unit: "dosa", base: 1, cal: 135, p: 3, c: 22, f: 3.5 },
+  { n: "Masala dosa", unit: "dosa", base: 1, cal: 250, p: 5, c: 35, f: 10 },
+  { n: "Benne dosa (butter)", unit: "dosa", base: 1, cal: 220, p: 4, c: 28, f: 10 },
+  { n: "Butter sada dosa", unit: "dosa", base: 1, cal: 200, p: 3, c: 26, f: 9 },
+  { n: "Mysore masala dosa", unit: "dosa", base: 1, cal: 280, p: 6, c: 38, f: 12 },
+  { n: "Set dosa", unit: "plate (3)", base: 1, cal: 250, p: 6, c: 40, f: 7 },
+  { n: "Onion dosa", unit: "dosa", base: 1, cal: 180, p: 4, c: 28, f: 6 },
+  { n: "Paper dosa", unit: "dosa", base: 1, cal: 160, p: 3, c: 26, f: 5 },
+  { n: "Ghee roast dosa", unit: "dosa", base: 1, cal: 250, p: 4, c: 34, f: 11 },
+  { n: "Cheese dosa", unit: "dosa", base: 1, cal: 300, p: 9, c: 36, f: 13 },
+  { n: "Paneer dosa", unit: "dosa", base: 1, cal: 290, p: 12, c: 34, f: 12 },
+  { n: "Podi dosa", unit: "dosa", base: 1, cal: 200, p: 4, c: 30, f: 7 },
+  { n: "Benne podi dosa", unit: "dosa", base: 1, cal: 250, p: 5, c: 30, f: 12 },
+  { n: "Benne podi masala dosa", unit: "dosa", base: 1, cal: 320, p: 6, c: 40, f: 15 },
+  { n: "Podi idli", unit: "plate (4)", base: 1, cal: 180, p: 5, c: 28, f: 6 },
+  { n: "Poha", unit: "bowl", base: 1, cal: 250, p: 5, c: 40, f: 8 },
+  { n: "Upma", unit: "bowl", base: 1, cal: 250, p: 6, c: 38, f: 9 },
+  { n: "Samosa", unit: "samosa", base: 1, cal: 260, p: 4, c: 30, f: 14 },
+  // chaat & street food (veg)
+  { n: "Sev puri", unit: "plate", base: 1, cal: 250, p: 5, c: 35, f: 10 },
+  { n: "Bhel puri", unit: "plate", base: 1, cal: 220, p: 5, c: 33, f: 8 },
+  { n: "Sukha bhel", unit: "plate", base: 1, cal: 180, p: 4, c: 28, f: 6 },
+  { n: "Pani puri / golgappa", unit: "plate (6)", base: 1, cal: 150, p: 3, c: 28, f: 3 },
+  { n: "Dahi puri", unit: "plate", base: 1, cal: 230, p: 6, c: 30, f: 9 },
+  { n: "Aloo tikki", unit: "piece", base: 1, cal: 150, p: 3, c: 20, f: 7 },
+  { n: "Vada pav", unit: "piece", base: 1, cal: 290, p: 7, c: 40, f: 11 },
+  { n: "Batata vada (no pav)", unit: "piece", base: 1, cal: 150, p: 3, c: 18, f: 8 },
+  { n: "Pav bhaji", unit: "plate", base: 1, cal: 400, p: 9, c: 50, f: 18 },
+  { n: "Dhokla", unit: "piece", base: 1, cal: 40, p: 1.5, c: 6, f: 1 },
+  { n: "Spring roll (veg)", unit: "roll", base: 1, cal: 120, p: 2, c: 15, f: 6 },
+  // wholesome meals (veg)
+  { n: "Veg thali", unit: "plate", base: 1, cal: 600, p: 18, c: 85, f: 20 },
+  { n: "Dal rice", unit: "plate", base: 1, cal: 400, p: 12, c: 70, f: 7 },
+  { n: "Rajma rice", unit: "plate", base: 1, cal: 450, p: 14, c: 75, f: 9 },
+  { n: "Chole rice", unit: "plate", base: 1, cal: 480, p: 14, c: 78, f: 12 },
+  { n: "Curd rice", unit: "bowl", base: 1, cal: 250, p: 7, c: 40, f: 6 },
+  { n: "Khichdi", unit: "bowl", base: 1, cal: 250, p: 9, c: 42, f: 5 },
+  { n: "Veg biryani", unit: "plate", base: 1, cal: 400, p: 9, c: 60, f: 13 },
+  { n: "Idli sambar", unit: "plate (2)", base: 1, cal: 200, p: 7, c: 38, f: 3 },
+  { n: "Sambar rice", unit: "bowl", base: 1, cal: 300, p: 9, c: 52, f: 6 },
+  { n: "Roti + sabzi", unit: "plate", base: 1, cal: 350, p: 10, c: 50, f: 12 },
+  { n: "Aloo paratha", unit: "paratha", base: 1, cal: 250, p: 6, c: 36, f: 9 },
+  { n: "Paneer wrap", unit: "wrap", base: 1, cal: 350, p: 15, c: 38, f: 15 },
+  { n: "Veg frankie / roll", unit: "roll", base: 1, cal: 300, p: 7, c: 40, f: 12 },
+  { n: "Paneer frankie", unit: "roll", base: 1, cal: 360, p: 14, c: 40, f: 16 },
+  { n: "Cheese frankie", unit: "roll", base: 1, cal: 380, p: 12, c: 42, f: 18 },
+  { n: "Aloo frankie", unit: "roll", base: 1, cal: 320, p: 6, c: 46, f: 12 },
+  { n: "Grain / Buddha bowl", unit: "bowl", base: 1, cal: 450, p: 18, c: 55, f: 16 },
+  // Indian hot meals & sabzis (veg)
+  { n: "Misal pav", unit: "plate", base: 1, cal: 400, p: 12, c: 55, f: 14 },
+  { n: "Misal (bowl)", unit: "bowl", base: 1, cal: 250, p: 10, c: 30, f: 10 },
+  { n: "Pithla bhakri", unit: "plate", base: 1, cal: 350, p: 10, c: 45, f: 14 },
+  { n: "Sabudana khichdi", unit: "bowl", base: 1, cal: 300, p: 5, c: 45, f: 11 },
+  { n: "Thalipeeth", unit: "piece", base: 1, cal: 180, p: 5, c: 28, f: 6 },
+  { n: "Dal makhani", unit: "bowl", base: 1, cal: 330, p: 12, c: 30, f: 18 },
+  { n: "Palak paneer", unit: "bowl", base: 1, cal: 280, p: 14, c: 12, f: 20 },
+  { n: "Aloo gobi", unit: "bowl", base: 1, cal: 200, p: 5, c: 22, f: 11 },
+  { n: "Bhindi masala", unit: "bowl", base: 1, cal: 180, p: 4, c: 14, f: 12 },
+  { n: "Baingan bharta", unit: "bowl", base: 1, cal: 190, p: 4, c: 16, f: 12 },
+  { n: "Kadhi", unit: "bowl", base: 1, cal: 180, p: 6, c: 18, f: 9 },
+  { n: "Chole bhature", unit: "plate", base: 1, cal: 450, p: 13, c: 55, f: 20 },
+  { n: "Puri bhaji", unit: "plate", base: 1, cal: 400, p: 8, c: 50, f: 18 },
+  { n: "Uttapam", unit: "piece", base: 1, cal: 180, p: 5, c: 30, f: 5 },
+  { n: "Medu vada", unit: "piece", base: 1, cal: 85, p: 2, c: 10, f: 4 },
+  { n: "Rava idli", unit: "piece", base: 1, cal: 60, p: 2, c: 10, f: 1.5 },
+  { n: "Pongal", unit: "bowl", base: 1, cal: 280, p: 7, c: 45, f: 8 },
+  { n: "Lemon rice", unit: "bowl", base: 1, cal: 250, p: 5, c: 42, f: 7 },
+  { n: "Gobi / paneer paratha", unit: "paratha", base: 1, cal: 250, p: 8, c: 32, f: 10 },
+  { n: "Plain paratha", unit: "paratha", base: 1, cal: 150, p: 3, c: 20, f: 6 },
+  { n: "Veg manchurian", unit: "plate", base: 1, cal: 300, p: 7, c: 35, f: 15 },
+  { n: "Veg hakka noodles", unit: "plate", base: 1, cal: 350, p: 8, c: 55, f: 11 },
+  { n: "Curd / dahi", unit: "bowl", base: 1, cal: 100, p: 6, c: 8, f: 5 },
+  { n: "Moong (boiled, tadka)", unit: "bowl", base: 1, cal: 180, p: 12, c: 25, f: 3 },
+  { n: "Sprouts salad", unit: "bowl", base: 1, cal: 150, p: 9, c: 20, f: 3 },
+  { n: "Dal fry", unit: "bowl", base: 1, cal: 200, p: 9, c: 22, f: 8 },
+  { n: "Sweet corn / corn chaat", unit: "bowl", base: 1, cal: 120, p: 3, c: 22, f: 2 },
+  { n: "Buttermilk (chaas)", unit: "glass", base: 1, cal: 40, p: 2, c: 4, f: 1.5 },
+  { n: "Lassi (sweet)", unit: "glass", base: 1, cal: 180, p: 5, c: 30, f: 4 },
+  { n: "Banana shake", unit: "glass", base: 1, cal: 250, p: 7, c: 40, f: 6 },
+  { n: "Mango shake", unit: "glass", base: 1, cal: 220, p: 5, c: 40, f: 4 },
+  { n: "Masala milk", unit: "glass", base: 1, cal: 200, p: 8, c: 26, f: 7 },
+  { n: "Badam milk", unit: "glass", base: 1, cal: 220, p: 8, c: 28, f: 8 },
+  // sandwiches (veg)
+  { n: "Grilled cheese sandwich", unit: "sandwich", base: 1, cal: 300, p: 10, c: 30, f: 15 },
+  { n: "Bombay masala sandwich", unit: "sandwich", base: 1, cal: 250, p: 7, c: 35, f: 9 },
+  { n: "Paneer sandwich", unit: "sandwich", base: 1, cal: 320, p: 14, c: 34, f: 14 },
+  { n: "Corn cheese sandwich", unit: "sandwich", base: 1, cal: 330, p: 11, c: 36, f: 15 },
+  { n: "Aloo sandwich", unit: "sandwich", base: 1, cal: 260, p: 6, c: 38, f: 9 },
+  { n: "Chutney sandwich", unit: "sandwich", base: 1, cal: 180, p: 5, c: 28, f: 5 },
+  { n: "Club sandwich (veg)", unit: "sandwich", base: 1, cal: 400, p: 12, c: 45, f: 18 },
+  // more sabzis & curries (veg)
+  { n: "Matar paneer", unit: "bowl", base: 1, cal: 300, p: 13, c: 16, f: 20 },
+  { n: "Paneer bhurji", unit: "bowl", base: 1, cal: 280, p: 16, c: 8, f: 20 },
+  { n: "Malai kofta", unit: "bowl", base: 1, cal: 380, p: 10, c: 22, f: 28 },
+  { n: "Aloo matar", unit: "bowl", base: 1, cal: 200, p: 6, c: 26, f: 8 },
+  { n: "Jeera aloo", unit: "bowl", base: 1, cal: 180, p: 3, c: 24, f: 8 },
+  { n: "Dum aloo", unit: "bowl", base: 1, cal: 250, p: 5, c: 28, f: 13 },
+  { n: "Veg korma", unit: "bowl", base: 1, cal: 300, p: 7, c: 20, f: 20 },
+  { n: "Stuffed capsicum", unit: "piece", base: 1, cal: 180, p: 5, c: 14, f: 11 },
+  { n: "Thepla", unit: "piece", base: 1, cal: 110, p: 3, c: 15, f: 4 },
+  // more South Indian (veg)
+  { n: "Rava dosa", unit: "dosa", base: 1, cal: 150, p: 3, c: 24, f: 4 },
+  { n: "Onion uttapam", unit: "piece", base: 1, cal: 200, p: 5, c: 32, f: 6 },
+  { n: "Appam", unit: "piece", base: 1, cal: 120, p: 2, c: 22, f: 2 },
+  { n: "Rasam", unit: "bowl", base: 1, cal: 80, p: 3, c: 12, f: 2 },
+  { n: "Sambar", unit: "bowl", base: 1, cal: 120, p: 6, c: 16, f: 3 },
+  { n: "Bisi bele bath", unit: "bowl", base: 1, cal: 320, p: 9, c: 50, f: 9 },
+  { n: "Dahi vada", unit: "plate (2)", base: 1, cal: 200, p: 6, c: 24, f: 9 },
+  { n: "Dahi boondi", unit: "bowl", base: 1, cal: 180, p: 5, c: 20, f: 8 },
+  // more rice / breads / snacks (veg)
+  { n: "Jeera rice", unit: "bowl", base: 1, cal: 220, p: 4, c: 42, f: 4 },
+  { n: "Tomato rice", unit: "bowl", base: 1, cal: 250, p: 5, c: 44, f: 6 },
+  { n: "Schezwan fried rice", unit: "plate", base: 1, cal: 350, p: 7, c: 55, f: 12 },
+  { n: "Tandoori roti", unit: "roti", base: 1, cal: 120, p: 4, c: 22, f: 2 },
+  { n: "Butter naan", unit: "naan", base: 1, cal: 280, p: 8, c: 45, f: 8 },
+  { n: "Garlic naan", unit: "naan", base: 1, cal: 300, p: 9, c: 46, f: 9 },
+  { n: "Kachori", unit: "piece", base: 1, cal: 180, p: 3, c: 18, f: 11 },
+  { n: "Bread pakora", unit: "piece", base: 1, cal: 180, p: 4, c: 20, f: 9 },
+  { n: "Onion / veg pakora", unit: "plate", base: 1, cal: 250, p: 5, c: 25, f: 14 },
+  { n: "Veg cutlet", unit: "piece", base: 1, cal: 130, p: 3, c: 16, f: 6 },
+  { n: "Hara bhara kabab", unit: "plate (2)", base: 1, cal: 160, p: 5, c: 18, f: 7 },
+  { n: "Paneer tikka", unit: "plate", base: 1, cal: 300, p: 20, c: 8, f: 20 },
+  { n: "Veg momos", unit: "plate (6)", base: 1, cal: 220, p: 6, c: 38, f: 5 },
+  { n: "Maggi / instant noodles", unit: "pack", base: 1, cal: 350, p: 7, c: 50, f: 13 },
+  { n: "White sauce pasta", unit: "plate", base: 1, cal: 400, p: 11, c: 45, f: 18 },
+  { n: "Red sauce pasta", unit: "plate", base: 1, cal: 350, p: 10, c: 55, f: 10 },
+  // sweets & desserts (veg)
+  { n: "Fruit custard", unit: "bowl", base: 1, cal: 200, p: 4, c: 32, f: 6 },
+  { n: "Fruit salad", unit: "bowl", base: 1, cal: 120, p: 2, c: 28, f: 1 },
+  { n: "Kheer / payasam", unit: "bowl", base: 1, cal: 250, p: 6, c: 40, f: 8 },
+  { n: "Gulab jamun", unit: "piece", base: 1, cal: 150, p: 2, c: 25, f: 6 },
+  { n: "Jalebi", unit: "piece", base: 1, cal: 150, p: 1, c: 28, f: 5 },
+  { n: "Rasgulla", unit: "piece", base: 1, cal: 125, p: 2, c: 27, f: 1 },
+  { n: "Halwa", unit: "bowl", base: 1, cal: 300, p: 4, c: 40, f: 14 },
+  // fruit
+  { n: "Banana", unit: "medium banana", base: 1, cal: 105, p: 1.3, c: 27, f: 0.4 },
+  { n: "Apple", unit: "medium apple", base: 1, cal: 95, p: 0.5, c: 25, f: 0.3 },
+  { n: "Orange", unit: "medium orange", base: 1, cal: 62, p: 1.2, c: 15, f: 0.2 },
+  { n: "Avocado", unit: "avocado", base: 1, cal: 240, p: 3, c: 12, f: 22 },
+  { n: "Strawberries", unit: "g", base: 100, cal: 32, p: 0.7, c: 7.7, f: 0.3 },
+  { n: "Blueberries", unit: "g", base: 100, cal: 57, p: 0.7, c: 14, f: 0.3 },
+  { n: "Grapes", unit: "g", base: 100, cal: 69, p: 0.7, c: 18, f: 0.2 },
+  { n: "Mango", unit: "g", base: 100, cal: 60, p: 0.8, c: 15, f: 0.4 },
+  { n: "Pineapple", unit: "g", base: 100, cal: 50, p: 0.5, c: 13, f: 0.1 },
+  { n: "Papaya", unit: "g", base: 100, cal: 43, p: 0.5, c: 11, f: 0.3 },
+  { n: "Watermelon", unit: "g", base: 100, cal: 30, p: 0.6, c: 8, f: 0.2 },
+  { n: "Muskmelon", unit: "g", base: 100, cal: 34, p: 0.8, c: 8, f: 0.2 },
+  { n: "Guava", unit: "g", base: 100, cal: 68, p: 2.6, c: 14, f: 1 },
+  { n: "Pomegranate", unit: "g", base: 100, cal: 83, p: 1.7, c: 19, f: 1.2 },
+  { n: "Pear", unit: "medium pear", base: 1, cal: 100, p: 0.6, c: 27, f: 0.2 },
+  { n: "Kiwi", unit: "kiwi", base: 1, cal: 42, p: 0.8, c: 10, f: 0.4 },
+  { n: "Chikoo (sapota)", unit: "g", base: 100, cal: 83, p: 0.4, c: 20, f: 1.1 },
+  { n: "Custard apple", unit: "g", base: 100, cal: 94, p: 2.1, c: 24, f: 0.3 },
+  { n: "Litchi", unit: "g", base: 100, cal: 66, p: 0.8, c: 17, f: 0.4 },
+  { n: "Dates", unit: "piece", base: 1, cal: 20, p: 0.2, c: 5, f: 0 },
+  // veg
+  { n: "Broccoli (cooked)", unit: "g", base: 100, cal: 35, p: 2.4, c: 7, f: 0.4 },
+  { n: "Spinach", unit: "g", base: 100, cal: 23, p: 2.9, c: 3.6, f: 0.4 },
+  { n: "Mixed salad", unit: "g", base: 100, cal: 15, p: 1, c: 3, f: 0.2 },
+  { n: "Carrot", unit: "g", base: 100, cal: 41, p: 0.9, c: 10, f: 0.2 },
+  { n: "Tomato", unit: "g", base: 100, cal: 18, p: 0.9, c: 3.9, f: 0.2 },
+  { n: "Bell pepper", unit: "g", base: 100, cal: 31, p: 1, c: 6, f: 0.3 },
+  { n: "Green beans (cooked)", unit: "g", base: 100, cal: 35, p: 2, c: 8, f: 0.1 },
+  { n: "Corn", unit: "g", base: 100, cal: 96, p: 3.4, c: 21, f: 1.5 },
+  { n: "Peas (cooked)", unit: "g", base: 100, cal: 84, p: 5, c: 16, f: 0.4 },
+  // dairy / fats / nuts
+  { n: "Milk (whole)", unit: "ml", base: 100, cal: 61, p: 3.2, c: 4.8, f: 3.3 },
+  { n: "Milk (skim)", unit: "ml", base: 100, cal: 34, p: 3.4, c: 5, f: 0.1 },
+  { n: "Cheddar cheese", unit: "g", base: 100, cal: 403, p: 25, c: 1.3, f: 33 },
+  { n: "Mozzarella", unit: "g", base: 100, cal: 280, p: 28, c: 3, f: 17 },
+  { n: "Butter", unit: "g", base: 100, cal: 717, p: 0.9, c: 0.1, f: 81 },
+  { n: "Ghee", unit: "tbsp", base: 1, cal: 112, p: 0, c: 0, f: 12.7 },
+  { n: "Olive oil", unit: "tbsp", base: 1, cal: 119, p: 0, c: 0, f: 13.5 },
+  { n: "Peanut butter", unit: "tbsp", base: 1, cal: 94, p: 4, c: 3, f: 8 },
+  { n: "Almonds", unit: "handful (28g)", base: 1, cal: 164, p: 6, c: 6, f: 14 },
+  { n: "Walnuts", unit: "handful (28g)", base: 1, cal: 185, p: 4.3, c: 3.9, f: 18.5 },
+  { n: "Cashews", unit: "handful (28g)", base: 1, cal: 157, p: 5, c: 9, f: 12 },
+  // common meals / snacks / drinks
+  { n: "Protein bar", unit: "bar", base: 1, cal: 220, p: 20, c: 22, f: 7 },
+  { n: "Pizza (veg)", unit: "slice", base: 1, cal: 250, p: 10, c: 32, f: 9 },
+  { n: "Cheese pizza", unit: "slice", base: 1, cal: 280, p: 12, c: 33, f: 11 },
+  { n: "Margherita pizza", unit: "slice", base: 1, cal: 240, p: 10, c: 32, f: 8 },
+  { n: "Paneer pizza", unit: "slice", base: 1, cal: 290, p: 13, c: 32, f: 12 },
+  { n: "Veg loaded pizza", unit: "slice", base: 1, cal: 270, p: 11, c: 33, f: 10 },
+  { n: "Street-style tawa pizza", unit: "piece", base: 1, cal: 300, p: 9, c: 38, f: 12 },
+  { n: "Garlic bread (cheese)", unit: "piece", base: 1, cal: 150, p: 4, c: 18, f: 7 },
+  { n: "Veggie burger", unit: "burger", base: 1, cal: 295, p: 12, c: 35, f: 12 },
+  { n: "French fries", unit: "g", base: 100, cal: 312, p: 3.4, c: 41, f: 15 },
+  { n: "Chocolate", unit: "g", base: 100, cal: 535, p: 7.6, c: 59, f: 30 },
+  { n: "Ice cream", unit: "g", base: 100, cal: 207, p: 3.5, c: 24, f: 11 },
+  { n: "Latte", unit: "cup (240ml)", base: 1, cal: 120, p: 8, c: 12, f: 4.5 },
+  { n: "Masala chai", unit: "cup", base: 1, cal: 90, p: 2, c: 12, f: 3 },
+  { n: "Black coffee (no sugar)", unit: "cup", base: 1, cal: 2, p: 0.3, c: 0, f: 0 },
+  { n: "Black coffee + sugar", unit: "cup", base: 1, cal: 20, p: 0.3, c: 5, f: 0 },
+  { n: "Coffee w/ milk, no sugar", unit: "cup", base: 1, cal: 35, p: 2, c: 3, f: 1.5 },
+  { n: "Coffee w/ milk + sugar", unit: "cup", base: 1, cal: 90, p: 3, c: 12, f: 3 },
+  { n: "Filter coffee", unit: "cup", base: 1, cal: 90, p: 3, c: 12, f: 3 },
+  { n: "Cappuccino", unit: "cup", base: 1, cal: 80, p: 4, c: 8, f: 4 },
+  { n: "Cold coffee", unit: "glass", base: 1, cal: 180, p: 6, c: 28, f: 5 },
+  { n: "Oat milk coffee (no sugar)", unit: "cup", base: 1, cal: 50, p: 1, c: 8, f: 1.5 },
+  { n: "Green tea", unit: "cup", base: 1, cal: 2, p: 0, c: 0, f: 0 },
+  { n: "Lemon tea", unit: "cup", base: 1, cal: 20, p: 0, c: 5, f: 0 },
+  { n: "Ginger tea", unit: "cup", base: 1, cal: 70, p: 1.5, c: 10, f: 2.5 },
+  { n: "Herbal / black tea (plain)", unit: "cup", base: 1, cal: 5, p: 0, c: 1, f: 0 },
+  { n: "Iced tea", unit: "glass", base: 1, cal: 90, p: 0, c: 22, f: 0 },
+  { n: "Coconut water", unit: "ml", base: 100, cal: 19, p: 0.7, c: 3.7, f: 0.2 },
+  { n: "Orange juice", unit: "ml", base: 100, cal: 47, p: 0.7, c: 11, f: 0.2 },
+  { n: "Cola", unit: "ml", base: 100, cal: 42, p: 0, c: 11, f: 0 },
+  { n: "Beer", unit: "ml", base: 100, cal: 43, p: 0.5, c: 3.6, f: 0 },
+  { n: "Wine", unit: "ml", base: 100, cal: 83, p: 0.1, c: 2.7, f: 0 },
+  { n: "Honey", unit: "tbsp", base: 1, cal: 64, p: 0, c: 17, f: 0 },
+  { n: "Sugar", unit: "tsp", base: 1, cal: 16, p: 0, c: 4, f: 0 },
+];
+
+/* ---------- storage ---------- */
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return structuredClone(DEFAULT_DATA);
+    const parsed = JSON.parse(raw);
+    return { ...structuredClone(DEFAULT_DATA), ...parsed,
+             goals: { ...DEFAULT_DATA.goals, ...(parsed.goals || {}) },
+             weights: Array.isArray(parsed.weights) ? parsed.weights : [],
+             expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+             currency: parsed.currency || "₹" };
+  } catch { return structuredClone(DEFAULT_DATA); }
+}
+function save() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+  if (typeof cloudOnSave === "function") cloudOnSave();
+}
+
+let DATA = load();
+
+/* ---------- date helpers ---------- */
+let viewDate = new Date();
+const pad = (n) => String(n).padStart(2, "0");
+function keyOf(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function isToday(d) { return keyOf(d) === keyOf(new Date()); }
+function dayData() {
+  const k = keyOf(viewDate);
+  if (!DATA.days[k]) DATA.days[k] = { workouts: [], meals: [], cardio: [] };
+  const dd = DATA.days[k];
+  if (!dd.cardio) dd.cardio = [];
+  if (!dd.activity) dd.activity = [];
+  return dd;
+}
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+/* ---------- totals ---------- */
+function totals() {
+  const d = dayData();
+  const eaten = d.meals.reduce((s, m) => s + (+m.calories || 0), 0);
+  const protein = d.meals.reduce((s, m) => s + (+m.protein || 0), 0);
+  const carbs = d.meals.reduce((s, m) => s + (+m.carbs || 0), 0);
+  const fat = d.meals.reduce((s, m) => s + (+m.fat || 0), 0);
+  const burned = d.workouts.reduce((s, w) => s + (+w.burned || 0), 0)
+               + d.cardio.reduce((s, c) => s + (+c.burned || 0), 0)
+               + d.activity.reduce((s, a) => s + (+a.kcal || 0), 0);
+  const steps = d.activity.reduce((s, a) => s + (+a.steps || 0), 0);
+  return { eaten, protein, carbs, fat, burned, steps };
+}
+
+/* ---------- weight / plan helpers ---------- */
+function latestWeight() {
+  if (!DATA.weights.length) return null;
+  const sorted = [...DATA.weights].sort((a, b) => (a.date < b.date ? -1 : 1));
+  return sorted[sorted.length - 1].kg;
+}
+
+function estimateCardioKcal(met, minutes) {
+  const kg = +DATA.goals.weight || latestWeight() || +DATA.goals.startWeight || 75;
+  return Math.round((met * 3.5 * kg / 200) * minutes);
+}
+
+function estimateStepKcal(steps) {
+  const kg = +DATA.goals.weight || latestWeight() || +DATA.goals.startWeight || 75;
+  return Math.round(steps * 0.04 * (kg / 70)); // ~40 kcal per 1000 steps at 70 kg
+}
+
+function planInfo() {
+  const g = DATA.goals;
+  const start = +g.startWeight || +g.weight || 0;
+  const target = +g.targetWeight || 0;
+  const cur = latestWeight() ?? (+g.weight || start);
+  const rate = +g.weeklyRate || 0.5;
+  const toLose = Math.max(cur - target, 0);
+  const weeks = rate > 0 ? Math.ceil(toLose / rate) : 0;
+  const eta = new Date(); eta.setDate(eta.getDate() + weeks * 7);
+  const pct = start > target ? Math.min(Math.max((start - cur) / (start - target), 0), 1) : 0;
+  return { start, target, cur, rate, weeks, eta, pct, toLose };
+}
+
+function suggestedCalories(kg, rate) {
+  const w = kg || latestWeight() || +DATA.goals.weight || 75;
+  const r = rate || +DATA.goals.weeklyRate || 0.5;
+  const maintenance = w * 31;          // rough, moderately active
+  const deficit = (r * 7700) / 7;      // ~7700 kcal per kg
+  return Math.max(1200, Math.round((maintenance - deficit) / 10) * 10);
+}
+
+function milestones() {
+  const { start, target, rate } = planInfo();
+  const cur = latestWeight() ?? start;
+  if (start <= target || rate <= 0) return [];
+  const out = []; const today = new Date();
+  let w = start, wk = 0;
+  while (w > target + 0.0001 && wk < 104) {
+    wk++; w = Math.max(start - rate * wk, target);
+    const date = new Date(today); date.setDate(today.getDate() + wk * 7);
+    out.push({ week: wk, weight: Math.round(w * 10) / 10, date, achieved: cur <= w + 0.0001 });
+  }
+  return out;
+}
+
+/* ---------- weekly aggregation (Mon–Sun) ---------- */
+function weekRange(ref = new Date()) {
+  const d = new Date(ref); const dow = (d.getDay() + 6) % 7; // Mon = 0
+  const mon = new Date(d); mon.setDate(d.getDate() - dow); mon.setHours(0, 0, 0, 0);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23, 59, 59, 999);
+  return { mon, sun };
+}
+function weekLabel(ref = new Date()) {
+  const { mon, sun } = weekRange(ref);
+  const f = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return `${f(mon)} – ${f(sun)}`;
+}
+function weekStats(ref = new Date()) {
+  const { mon, sun } = weekRange(ref);
+  let cardioMin = 0, strength = 0, cardioKcal = 0, calSum = 0, calDays = 0;
+  Object.entries(DATA.days).forEach(([k, dd]) => {
+    const dt = new Date(k + "T12:00:00");
+    if (dt < mon || dt > sun) return;
+    (dd.cardio || []).forEach((c) => { cardioMin += +c.minutes || 0; cardioKcal += +c.burned || 0; });
+    strength += (dd.workouts || []).length;
+    const eaten = (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0);
+    if (eaten > 0) { calSum += eaten; calDays++; }
+  });
+  return { cardioMin, strength, cardioKcal, avgCal: calDays ? Math.round(calSum / calDays) : 0 };
+}
+
+/* ============================================================
+   RENDER
+============================================================ */
+const $ = (sel) => document.querySelector(sel);
+const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+
+function renderDate() {
+  const lbl = isToday(viewDate)
+    ? "Today"
+    : viewDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  $("#date-label").textContent = lbl;
+  // don't allow future days
+  $("#date-next").style.visibility = isToday(viewDate) ? "hidden" : "visible";
+}
+
+function renderDashboard() {
+  const t = totals();
+  const g = DATA.goals;
+  const remaining = g.calories - t.eaten; // food only — exercise is not added back
+  $("#cal-remaining").textContent = Math.round(remaining);
+  $("#cal-goal").textContent = g.calories;
+  $("#cal-eaten").textContent = Math.round(t.eaten);
+  $("#cal-burned").textContent = Math.round(t.burned);
+
+  // ring: fraction of goal eaten (0..1+)
+  const frac = g.calories > 0 ? Math.min(t.eaten / g.calories, 1) : 0;
+  const C = 327; // 2*pi*52
+  $("#cal-ring").style.strokeDashoffset = C - C * frac;
+  $("#cal-ring").style.stroke = t.eaten > g.calories ? "var(--danger)" : "var(--accent)";
+
+  const setMacro = (id, val, goal) => {
+    $(id).textContent = `${Math.round(val)}g`;
+    const bar = $(id).parentElement.querySelector(".macro-bar span");
+    bar.style.width = Math.min(goal > 0 ? (val / goal) * 100 : 0, 100) + "%";
+  };
+  setMacro("#m-protein", t.protein, g.protein);
+  setMacro("#m-carbs", t.carbs, g.carbs);
+  setMacro("#m-fat", t.fat, g.fat);
+
+  renderWeek();
+
+  const d = dayData();
+  // mini training list (workouts + cardio)
+  renderTraining($("#dash-workout"), d, true);
+
+  // mini meals
+  const mWrap = $("#dash-meals"); mWrap.innerHTML = "";
+  if (!d.meals.length) mWrap.appendChild(el(`<div class="empty">No food logged</div>`));
+  d.meals.forEach((m) => mWrap.appendChild(mealItem(m, true)));
+}
+
+function renderTraining(wrap, d, mini) {
+  wrap.innerHTML = "";
+  if (!d.workouts.length && !d.cardio.length && !d.activity.length) {
+    wrap.appendChild(el(`<div class="empty">${mini ? "No activity logged" : "Nothing yet. Log a workout, exercise or activity below."}</div>`));
+    return;
+  }
+  d.workouts.forEach((w) => wrap.appendChild(workoutItem(w, mini)));
+  d.cardio.forEach((c) => wrap.appendChild(cardioItem(c, mini)));
+  d.activity.forEach((a) => wrap.appendChild(activityItem(a, mini)));
+}
+
+function activityItem(a, mini) {
+  const sub = a.steps ? `${(+a.steps).toLocaleString()} steps` : "Everyday activity";
+  const node = el(`
+    <div class="item">
+      <div class="grow">
+        <div class="title">🚶 ${escapeHtml(a.label || "Activity")} <span class="pill">move</span></div>
+        <div class="sub">${sub}</div>
+      </div>
+      ${a.kcal ? `<span class="kcal">−${Math.round(a.kcal)}</span>` : ""}
+      ${mini ? "" : `<button class="del" aria-label="Delete">✕</button>`}
+    </div>`);
+  if (!mini) node.querySelector(".del").onclick = () => removeActivity(a.id);
+  return node;
+}
+
+function cardioItem(c, mini) {
+  const node = el(`
+    <div class="item">
+      <div class="grow">
+        <div class="title">${escapeHtml(c.type || "Cardio")} <span class="pill">cardio</span></div>
+        <div class="sub">${(+c.minutes ? `${+c.minutes} min` : (+c.steps ? `${(+c.steps).toLocaleString()} steps` : "—"))}</div>
+      </div>
+      ${c.burned ? `<span class="kcal">−${Math.round(c.burned)}</span>` : ""}
+      ${mini ? "" : `<div class="item-actions"><button class="edit" aria-label="Edit">✎</button><button class="del" aria-label="Delete">✕</button></div>`}
+    </div>`);
+  if (!mini) {
+    node.querySelector(".del").onclick = () => removeCardio(c.id);
+    node.querySelector(".edit").onclick = () => openCardioEdit(c);
+    const g = node.querySelector(".grow");
+    g.classList.add("tappable");
+    g.onclick = () => openCardioEdit(c);
+  }
+  return node;
+}
+
+function weekTile(val, goal, lbl) {
+  const pct = goal > 0 ? Math.min((val / goal) * 100, 100) : 0;
+  return `<div class="wtile">
+    <div class="wt-num">${Math.round(val)}<small>/${goal || 0}</small></div>
+    <div class="wt-bar"><span style="width:${pct}%"></span></div>
+    <div class="wt-lbl">${lbl}</div>
+  </div>`;
+}
+
+function renderWeek() {
+  const w = weekStats(); const p = planInfo(); const g = DATA.goals;
+  const toGo = p.cur && p.target ? Math.max(p.cur - p.target, 0) : 0;
+  $("#week-card").innerHTML = `
+    <div class="week-head"><b>This week</b><span class="muted">${weekLabel()}</span></div>
+    <div class="week-tiles">
+      ${weekTile(w.cardioMin, g.cardioGoal, "Cardio min")}
+      ${weekTile(w.strength, g.strengthGoal, "Strength")}
+      <div class="wtile"><div class="wt-num">${toGo.toFixed(1)}<small>kg</small></div><div class="wt-bar"></div><div class="wt-lbl">to goal</div></div>
+    </div>`;
+}
+
+function exSetCount(e) { return Array.isArray(e.sets) ? e.sets.length : (+e.sets || 0); }
+
+function workoutItem(w, mini) {
+  const exCount = w.exercises?.length || 0;
+  const sub = exCount
+    ? w.exercises.map((e) => `${e.name}${exSetCount(e) ? ` ${exSetCount(e)}×` : ""}`).filter(Boolean).join(", ")
+    : "No exercises";
+  const node = el(`
+    <div class="item">
+      <div class="grow">
+        <div class="title">${escapeHtml(w.name || "Workout")}</div>
+        <div class="sub">${escapeHtml(sub)}</div>
+      </div>
+      ${w.burned ? `<span class="kcal">−${w.burned}</span>` : ""}
+      ${mini ? "" : `<div class="item-actions"><button class="edit" aria-label="Edit">✎</button><button class="del" aria-label="Delete">✕</button></div>`}
+    </div>`);
+  if (!mini) {
+    node.querySelector(".del").onclick = () => { removeWorkout(w.id); };
+    node.querySelector(".edit").onclick = () => openWorkoutEdit(w);
+    const g = node.querySelector(".grow");
+    g.classList.add("tappable");
+    g.onclick = () => openWorkoutEdit(w);
+  }
+  return node;
+}
+
+function mealItem(m, mini) {
+  const macros = [m.protein && `P${m.protein}`, m.carbs && `C${m.carbs}`, m.fat && `F${m.fat}`]
+    .filter(Boolean).join(" · ");
+  const node = el(`
+    <div class="item">
+      <div class="grow">
+        <div class="title">${escapeHtml(m.name || "Food")} <span class="pill">${m.type || ""}</span></div>
+        <div class="sub">${macros || "&nbsp;"}</div>
+      </div>
+      <span class="kcal">${Math.round(m.calories || 0)}</span>
+      ${mini ? "" : `<div class="item-actions"><button class="edit" aria-label="Edit">✎</button><button class="del" aria-label="Delete">✕</button></div>`}
+    </div>`);
+  if (!mini) {
+    node.querySelector(".del").onclick = () => { removeMeal(m.id); };
+    node.querySelector(".edit").onclick = () => openMealEdit(m);
+    const g = node.querySelector(".grow");
+    g.classList.add("tappable");
+    g.onclick = () => openMealEdit(m);
+  }
+  return node;
+}
+
+function renderWorkouts() {
+  renderTraining($("#workout-list"), dayData(), false);
+}
+
+function weightChartSVG() {
+  const ws = [...DATA.weights].sort((a, b) => (a.date < b.date ? -1 : 1));
+  if (ws.length < 2) return `<div class="empty">Log your weight a few times to see your trend.</div>`;
+  const W = 300, H = 90, P = 8;
+  const tgt = +DATA.goals.targetWeight || null;
+  const vals = ws.map((x) => x.kg).concat(tgt ? [tgt] : []);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (min === max) { min -= 1; max += 1; }
+  const x = (i) => P + (i * (W - 2 * P)) / (ws.length - 1);
+  const y = (v) => P + ((max - v) * (H - 2 * P)) / (max - min);
+  const pts = ws.map((p, i) => `${x(i).toFixed(1)},${y(p.kg).toFixed(1)}`).join(" ");
+  const tgtY = tgt != null ? y(tgt).toFixed(1) : null;
+  return `<svg viewBox="0 0 ${W} ${H}" class="wchart" preserveAspectRatio="none">
+    ${tgt != null ? `<line class="tgt-line" x1="0" y1="${tgtY}" x2="${W}" y2="${tgtY}"></line>` : ""}
+    <polyline class="wline" points="${pts}"></polyline>
+    ${ws.map((p, i) => `<circle class="wdot" cx="${x(i).toFixed(1)}" cy="${y(p.kg).toFixed(1)}" r="2.6"></circle>`).join("")}
+  </svg>`;
+}
+
+let progressWeek = new Date();
+
+function renderProgress() {
+  const p = planInfo(); const ms = milestones(); const w = weekStats(progressWeek); const g = DATA.goals;
+  const cur = latestWeight() ?? (+g.weight || p.start);
+  const pct = Math.round(p.pct * 100);
+  const reached = cur && g.targetWeight && cur <= g.targetWeight;
+  const atCurrentWeek = weekRange(progressWeek).mon.getTime() === weekRange(new Date()).mon.getTime();
+  $("#progress-body").innerHTML = `
+    <div class="card">
+      <div class="week-head"><b>Weight</b><span class="muted">${cur ? cur + " kg" : "—"} → ${g.targetWeight || "—"} kg</span></div>
+      <div class="prog-big"><span style="width:${pct}%"></span></div>
+      <div class="prog-meta"><span>${pct}% there</span><span>${p.toLose.toFixed(1)} kg to go</span></div>
+      <div class="muted small" style="margin-top:8px">${reached
+        ? "🎉 Target reached — nice work!"
+        : `~${p.weeks} weeks left · target ${p.eta.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}</div>
+      <div class="chart-wrap">${weightChartSVG()}</div>
+    </div>
+    <div class="card">
+      <div class="month-nav">
+        <button id="pw-prev" class="icon-btn" aria-label="Previous week">‹</button>
+        <span>${atCurrentWeek ? "This week" : "Week of"} ${weekLabel(progressWeek)}</span>
+        <button id="pw-next" class="icon-btn" aria-label="Next week" style="visibility:${atCurrentWeek ? "hidden" : "visible"}">›</button>
+      </div>
+      <div class="week-tiles">
+        ${weekTile(w.cardioMin, g.cardioGoal, "Cardio min")}
+        ${weekTile(w.strength, g.strengthGoal, "Strength")}
+        <div class="wtile"><div class="wt-num">${w.avgCal || "—"}</div><div class="wt-bar"></div><div class="wt-lbl">avg kcal</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="week-head"><b>Milestones</b><span class="muted">${g.weeklyRate || 0.5} kg/week</span></div>
+      <div class="ms-list">${ms.length ? ms.map((m) => `
+        <div class="ms-row ${m.achieved ? "done" : ""}">
+          <span class="ms-check">${m.achieved ? "✓" : ""}</span>
+          <span class="ms-wk">Week ${m.week}</span>
+          <span class="ms-wt">${m.weight} kg</span>
+          <span class="ms-date">${m.date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+        </div>`).join("") : `<div class="empty">Set a start &amp; target weight in Goals.</div>`}
+      </div>
+    </div>`;
+
+  $("#pw-prev").onclick = () => { progressWeek.setDate(progressWeek.getDate() - 7); renderProgress(); };
+  $("#pw-next").onclick = () => {
+    if (weekRange(progressWeek).mon.getTime() === weekRange(new Date()).mon.getTime()) return;
+    progressWeek.setDate(progressWeek.getDate() + 7); renderProgress();
+  };
+}
+
+function renderNutrition() {
+  const t = totals();
+  const d = dayData();
+  $("#nut-eaten").textContent = Math.round(t.eaten);
+  $("#nut-count").textContent = d.meals.length;
+  const wrap = $("#meal-list"); wrap.innerHTML = "";
+  if (!d.meals.length) wrap.appendChild(el(`<div class="empty">No food yet. Tap below to log a meal.</div>`));
+  d.meals.forEach((m) => wrap.appendChild(mealItem(m, false)));
+}
+
+/* ============================================================
+   EXPENSES
+============================================================ */
+let expenseMonth = new Date();
+
+function monthKey(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; }
+function monthLabel(d) { return d.toLocaleDateString(undefined, { month: "long", year: "numeric" }); }
+function money(n) { return `${DATA.currency}${Math.round(+n || 0).toLocaleString()}`; }
+
+function expensesForMonth() {
+  const mk = monthKey(expenseMonth);
+  return DATA.expenses
+    .filter((e) => (e.date || "").slice(0, 7) === mk)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+const CAT_COLORS = { Travel: "var(--accent)", Randoms: "var(--carbs)", Sports: "var(--accent-2)" };
+
+function renderExpenses() {
+  $("#exp-month-label").textContent = monthLabel(expenseMonth);
+  $("#exp-next").style.visibility = monthKey(expenseMonth) === monthKey(new Date()) ? "hidden" : "visible";
+
+  const all = expensesForMonth();
+  const list = all.filter((e) => e.kind !== "income");   // spending
+  const incomes = all.filter((e) => e.kind === "income"); // earnings
+  const spent = list.reduce((s, e) => s + (+e.amount || 0), 0);
+  const earned = incomes.reduce((s, e) => s + (+e.amount || 0), 0);
+  const net = spent - earned;
+  const byCat = {}; EXPENSE_CATEGORIES.forEach((c) => (byCat[c] = 0));
+  const byTravel = {}; TRAVEL_SUBS.forEach((s) => (byTravel[s] = 0));
+  list.forEach((e) => {
+    byCat[e.category] = (byCat[e.category] || 0) + (+e.amount || 0);
+    if (e.category === "Travel" && e.sub) byTravel[e.sub] = (byTravel[e.sub] || 0) + (+e.amount || 0);
+  });
+
+  const catRows = EXPENSE_CATEGORIES.map((c) => {
+    const amt = byCat[c] || 0;
+    const pct = spent > 0 ? Math.round((amt / spent) * 100) : 0;
+    return `<div class="cat-row">
+        <div class="cat-top">
+          <span class="cat-name"><i class="dot" style="background:${CAT_COLORS[c]}"></i>${c}</span>
+          <span class="cat-amt">${money(amt)}</span>
+        </div>
+        <div class="cat-bar"><span style="width:${pct}%;background:${CAT_COLORS[c]}"></span></div>
+      </div>`;
+  }).join("");
+
+  const travelSpent = byCat.Travel || 0;
+  const travelRows = TRAVEL_SUBS.filter((s) => byTravel[s] > 0)
+    .map((s) => `<div class="sub-row"><span>${s}</span><b>${money(byTravel[s])}</b></div>`).join("");
+
+  $("#expenses-body").innerHTML = `
+    <div class="card exp-total-card">
+      <div class="exp-total">${money(net)}</div>
+      <div class="muted small">net spent · ${monthLabel(expenseMonth)}</div>
+      ${earned > 0 ? `<div class="net-line"><span>Spent ${money(spent)}</span><span class="earned">− Earned ${money(earned)}</span></div>` : ""}
+    </div>
+    <div class="card">
+      <div class="week-head"><b>By category</b></div>
+      ${catRows}
+    </div>
+    ${travelSpent > 0 ? `<div class="card">
+      <div class="week-head"><b>Travel breakdown</b><span class="muted">${money(travelSpent)}</span></div>
+      ${travelRows || `<div class="empty">No travel type set.</div>`}
+    </div>` : ""}
+    <div class="card">
+      <div class="week-head"><b>Spends</b><span class="muted">${list.length}</span></div>
+      <div class="exp-cols">
+        <div class="exp-col">
+          <div class="exp-col-h">Randoms + Sports</div>
+          <div class="card-list" id="exp-list-other"></div>
+        </div>
+        <div class="exp-col">
+          <div class="exp-col-h">Travel</div>
+          <div class="card-list" id="exp-list-travel"></div>
+        </div>
+      </div>
+    </div>
+    ${incomes.length ? `<div class="card">
+      <div class="week-head"><b>Earnings</b><span class="muted">${money(earned)}</span></div>
+      <div class="card-list" id="exp-list-income"></div>
+    </div>` : ""}`;
+
+  const left = list.filter((e) => e.category !== "Travel");
+  const right = list.filter((e) => e.category === "Travel");
+  const lw = $("#exp-list-other"), rw = $("#exp-list-travel");
+  if (!left.length) lw.appendChild(el(`<div class="empty">None</div>`));
+  else left.forEach((e) => lw.appendChild(expenseCell(e)));
+  if (!right.length) rw.appendChild(el(`<div class="empty">None</div>`));
+  else right.forEach((e) => rw.appendChild(expenseCell(e)));
+  if (incomes.length) incomes.forEach((e) => $("#exp-list-income").appendChild(expenseCell(e)));
+}
+
+function expenseCell(e) {
+  const dateStr = new Date(e.date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const income = e.kind === "income";
+  const tag = income ? "Income" : (e.category === "Travel" ? (e.sub || "Travel") : e.category);
+  const meta = (e.note ? escapeHtml(e.note) + " · " : "") + tag + " · " + dateStr;
+  const amt = income ? `+${money(e.amount)}` : money(e.amount);
+  const node = el(`
+    <div class="item exp-cell">
+      <div class="grow tappable">
+        <div class="title money${income ? " income" : ""}">${amt}</div>
+        <div class="sub">${meta}</div>
+      </div>
+      <div class="item-actions">
+        <button class="edit" aria-label="Edit">✎</button>
+        <button class="del" aria-label="Delete">✕</button>
+      </div>
+    </div>`);
+  const openEdit = () => (income ? openIncomeEdit(e) : openExpenseEdit(e));
+  node.querySelector(".grow").onclick = openEdit;
+  node.querySelector(".edit").onclick = openEdit;
+  node.querySelector(".del").onclick = () => removeExpense(e.id);
+  return node;
+}
+
+function removeExpense(id) {
+  if (!confirm("Delete this entry?")) return;
+  DATA.expenses = DATA.expenses.filter((e) => e.id !== id);
+  save(); renderExpenses();
+}
+
+function renderProfile() {
+  const g = DATA.goals;
+  $("#p-start").value = g.startWeight ?? "";
+  $("#p-weight").value = (latestWeight() ?? g.weight) ?? "";
+  $("#p-target").value = g.targetWeight ?? "";
+  $("#p-rate").value = g.weeklyRate ?? "";
+  $("#p-cal-goal").value = g.calories;
+  $("#p-protein").value = g.protein;
+  $("#p-carbs").value = g.carbs;
+  $("#p-fat").value = g.fat;
+  $("#p-cardio-goal").value = g.cardioGoal ?? "";
+  $("#p-steps-goal").value = g.stepsGoal ?? "";
+  $("#p-strength-goal").value = g.strengthGoal ?? "";
+  updatePlanReadout();
+  if (typeof refreshSyncUI === "function") refreshSyncUI();
+}
+
+function updatePlanReadout() {
+  const start = +$("#p-start").value || 0;
+  const cur = +$("#p-weight").value || start;
+  const target = +$("#p-target").value || 0;
+  const rate = +$("#p-rate").value || 0;
+  const box = $("#plan-readout");
+  if (!cur || !target || !rate) {
+    box.innerHTML = `<span class="muted small">Enter current, target and rate to see your plan.</span>`;
+    return;
+  }
+  if (cur <= target) {
+    box.innerHTML = `<b>🎉 You're at or below your target!</b>`;
+    return;
+  }
+  const weeks = Math.ceil((cur - target) / rate);
+  const eta = new Date(); eta.setDate(eta.getDate() + weeks * 7);
+  box.innerHTML = `
+    <div>Lose <b>${(cur - target).toFixed(1)} kg</b> in about <b>${weeks} weeks</b> at ${rate} kg/week.</div>
+    <div>Target date: <b>${eta.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</b></div>
+    <div>Suggested intake: <b>~${suggestedCalories(cur, rate)} kcal/day</b></div>`;
+}
+
+function renderAll() {
+  renderDate();
+  renderDashboard();
+  renderWorkouts();
+  renderNutrition();
+  renderProgress();
+  renderExpenses();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ============================================================
+   MUTATIONS
+============================================================ */
+function removeWorkout(id) {
+  if (!confirm("Delete this workout?")) return;
+  const d = dayData(); d.workouts = d.workouts.filter((w) => w.id !== id); save(); renderAll();
+}
+function removeMeal(id) {
+  if (!confirm("Delete this food entry?")) return;
+  const d = dayData(); d.meals = d.meals.filter((m) => m.id !== id); save(); renderAll();
+}
+function removeCardio(id) {
+  if (!confirm("Delete this exercise entry?")) return;
+  const d = dayData(); d.cardio = d.cardio.filter((c) => c.id !== id); save(); renderAll();
+}
+function removeActivity(id) {
+  if (!confirm("Delete this activity?")) return;
+  const d = dayData(); d.activity = d.activity.filter((a) => a.id !== id); save(); renderAll();
+}
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+const TITLES = { dashboard: "Today", workouts: "Workouts", nutrition: "Nutrition", progress: "Progress", expenses: "Expenses", profile: "Goals" };
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach((s) => s.classList.add("hidden"));
+  $("#screen-" + name).classList.remove("hidden");
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.screen === name));
+  $("#screen-title").textContent = TITLES[name];
+  // date switcher only relevant for day-based screens
+  const showDate = name !== "profile" && name !== "progress" && name !== "expenses";
+  $("#date-prev").style.display = showDate ? "" : "none";
+  $("#date-next").style.display = showDate ? "" : "none";
+  $("#date-label").style.display = showDate ? "" : "none";
+  if (name === "profile") renderProfile();
+  if (name === "progress") renderProgress();
+  if (name === "expenses") renderExpenses();
+}
+
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.onclick = () => showScreen(tab.dataset.screen);
+});
+
+$("#date-prev").onclick = () => { viewDate.setDate(viewDate.getDate() - 1); renderAll(); };
+$("#date-next").onclick = () => {
+  if (isToday(viewDate)) return;
+  viewDate.setDate(viewDate.getDate() + 1); renderAll();
+};
+
+/* ============================================================
+   MODALS
+============================================================ */
+function openModal(id) { $(id).classList.remove("hidden"); }
+function closeModal(id) { $(id).classList.add("hidden"); }
+document.querySelectorAll("[data-close]").forEach((b) => {
+  b.onclick = () => b.closest(".modal-backdrop").classList.add("hidden");
+});
+document.querySelectorAll(".modal-backdrop").forEach((m) => {
+  m.addEventListener("click", (e) => { if (e.target === m) m.classList.add("hidden"); });
+});
+
+/* ---------- workout modal ---------- */
+// rebuild the exercise autocomplete with the chosen day's moves first
+function fillExerciseList(type) {
+  const pri = EXERCISES_BY_TYPE[type] || [];
+  const ordered = [...new Set([...pri, ...EXERCISES])];
+  $("#exercise-list").innerHTML = ordered.map((n) => `<option value="${escapeHtml(n)}"></option>`).join("");
+}
+fillExerciseList("Push");
+
+function normalizeSets(ex) {
+  if (Array.isArray(ex.sets)) return ex.sets.length ? ex.sets : [{}];
+  if (ex.sets) return Array.from({ length: +ex.sets }, () => ({ reps: ex.reps ?? null, weight: ex.weight ?? null }));
+  if (ex.reps != null || ex.weight != null) return [{ reps: ex.reps ?? null, weight: ex.weight ?? null }];
+  return [{}];
+}
+function renumberSets(list) {
+  [...list.querySelectorAll(".set-n")].forEach((s, i) => (s.textContent = i + 1));
+}
+function setRow(set = {}, n = 1) {
+  const row = el(`
+    <div class="set-row">
+      <span class="set-n">${n}</span>
+      <input class="s-reps" type="number" inputmode="numeric" placeholder="reps" value="${set.reps ?? ""}">
+      <span class="set-x">×</span>
+      <input class="s-kg" type="number" inputmode="decimal" placeholder="kg" value="${set.weight ?? ""}">
+      <button class="set-del" type="button" aria-label="Remove set">✕</button>
+    </div>`);
+  row.querySelector(".set-del").onclick = () => { const list = row.parentElement; row.remove(); renumberSets(list); recalcWorkoutBurn(); };
+  return row;
+}
+function exerciseBlock(ex = {}) {
+  const block = el(`
+    <div class="ex-block">
+      <div class="ex-head">
+        <input class="ex-name-input" list="exercise-list" placeholder="Search exercise…" value="${escapeHtml(ex.name || "")}">
+        <button class="ex-del" type="button" aria-label="Remove exercise">✕</button>
+      </div>
+      <div class="set-list"></div>
+      <button class="add-set" type="button">+ Set</button>
+    </div>`);
+  const list = block.querySelector(".set-list");
+  normalizeSets(ex).forEach((s, i) => list.appendChild(setRow(s, i + 1)));
+  block.querySelector(".ex-del").onclick = () => { block.remove(); recalcWorkoutBurn(); };
+  block.querySelector(".add-set").onclick = () => {
+    const rows = list.querySelectorAll(".set-row");
+    const last = rows[rows.length - 1];
+    // copy the last set so repeated sets need no typing
+    const prev = last ? { reps: last.querySelector(".s-reps").value, weight: last.querySelector(".s-kg").value } : {};
+    list.appendChild(setRow(prev, rows.length + 1));
+    recalcWorkoutBurn();
+  };
+  return block;
+}
+
+let editingWorkoutId = null;
+let gymType = "Push";
+let workoutBurnTouched = false;
+
+// conservative estimate: ~5 kcal per set at 75 kg, scaled by body weight
+function recalcWorkoutBurn() {
+  if (workoutBurnTouched) return;
+  const kg = +DATA.goals.weight || latestWeight() || +DATA.goals.startWeight || 75;
+  const sets = $("#exercise-editor").querySelectorAll(".set-row").length;
+  const est = Math.round(sets * 5 * (kg / 75));
+  $("#w-burned").value = est || "";
+  $("#w-burn-hint").textContent = est
+    ? `≈ ${est} kcal (kept modest — edit if you like)`
+    : "Add sets and a calorie estimate appears here.";
+}
+function setGymType(t) {
+  gymType = t;
+  $("#w-type-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.type === t));
+  fillExerciseList(t); // surface this day's exercises first in the picker
+}
+$("#w-type-seg").querySelectorAll("button").forEach((b) => { b.onclick = () => setGymType(b.dataset.type); });
+$("#w-burned").addEventListener("input", () => { workoutBurnTouched = true; });
+
+$("#add-workout-btn").onclick = () => {
+  editingWorkoutId = null;
+  workoutBurnTouched = false;
+  $("#w-burned").value = "";
+  setGymType("Push");
+  const editor = $("#exercise-editor"); editor.innerHTML = "";
+  editor.appendChild(exerciseBlock());
+  $("#workout-modal-title").textContent = "Log Gym";
+  recalcWorkoutBurn();
+  openModal("#workout-modal");
+};
+$("#add-exercise").onclick = () => { $("#exercise-editor").appendChild(exerciseBlock()); recalcWorkoutBurn(); };
+
+function openWorkoutEdit(w) {
+  editingWorkoutId = w.id;
+  workoutBurnTouched = true; // keep the stored value
+  $("#w-burned").value = w.burned || "";
+  const types = ["Push", "Pull", "Legs", "Functional", "Abs", "Full body"];
+  setGymType(types.includes(w.name) ? w.name : "Full body");
+  const editor = $("#exercise-editor"); editor.innerHTML = "";
+  const exs = w.exercises && w.exercises.length ? w.exercises : [{}];
+  exs.forEach((ex) => editor.appendChild(exerciseBlock(ex)));
+  $("#w-burn-hint").textContent = "";
+  $("#workout-modal-title").textContent = "Edit Gym";
+  openModal("#workout-modal");
+}
+
+$("#save-workout").onclick = () => {
+  const exercises = [...$("#exercise-editor").querySelectorAll(".ex-block")].map((block) => {
+    const name = block.querySelector(".ex-name-input").value.trim();
+    const sets = [...block.querySelectorAll(".set-row")].map((r) => ({
+      reps: r.querySelector(".s-reps").value ? +r.querySelector(".s-reps").value : null,
+      weight: r.querySelector(".s-kg").value ? +r.querySelector(".s-kg").value : null,
+    })).filter((s) => s.reps != null || s.weight != null);
+    return { name, sets };
+  }).filter((e) => e.name);
+  const fields = {
+    name: gymType,
+    exercises,
+    burned: $("#w-burned").value ? +$("#w-burned").value : 0,
+  };
+  const workouts = dayData().workouts;
+  if (editingWorkoutId) {
+    const w = workouts.find((x) => x.id === editingWorkoutId);
+    if (w) Object.assign(w, fields);
+  } else {
+    workouts.push({ id: uid(), ...fields });
+  }
+  editingWorkoutId = null;
+  save(); renderAll(); closeModal("#workout-modal");
+};
+
+/* ---------- meal modal ---------- */
+let mealType = "Breakfast";
+$("#meal-type-seg").querySelectorAll("button").forEach((b) => {
+  b.onclick = () => {
+    $("#meal-type-seg").querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active"); mealType = b.dataset.type;
+  };
+});
+
+function guessMealType() {
+  const h = new Date().getHours();
+  if (h < 11) return "Breakfast";
+  if (h < 15) return "Lunch";
+  if (h < 21) return "Dinner";
+  return "Snack";
+}
+
+let editingMealId = null;
+
+$("#add-meal-btn").onclick = () => {
+  editingMealId = null;
+  ["#f-name", "#f-cal", "#f-protein", "#f-carbs", "#f-fat", "#f-search", "#f-qty"].forEach((s) => ($(s).value = ""));
+  selectedFood = null;
+  $("#f-results").innerHTML = "";
+  $("#f-qty-wrap").classList.add("hidden");  $("#meal-modal-title").textContent = "Log Food";
+  mealType = guessMealType();
+  $("#meal-type-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.type === mealType));
+  openModal("#meal-modal");
+  setTimeout(() => $("#f-search").focus(), 100);
+};
+
+function openMealEdit(m) {
+  editingMealId = m.id;
+  selectedFood = null;
+  $("#f-search").value = "";
+  $("#f-results").innerHTML = "";
+  $("#f-qty-wrap").classList.add("hidden");  $("#f-name").value = m.name || "";
+  $("#f-cal").value = m.calories || 0;
+  $("#f-protein").value = m.protein || 0;
+  $("#f-carbs").value = m.carbs || 0;
+  $("#f-fat").value = m.fat || 0;
+  mealType = m.type || "Snack";
+  $("#meal-type-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.type === mealType));
+  $("#meal-modal-title").textContent = "Edit Food";
+  openModal("#meal-modal");
+}
+
+/* ---------- food search + auto-calc ---------- */
+let selectedFood = null;
+
+function foodQtyLabel(f) {
+  return f.unit === "g" ? "g" : f.unit === "ml" ? "ml" : f.unit;
+}
+
+function renderFoodResults(list, { online = false } = {}) {
+  const wrap = $("#f-results");
+  wrap.innerHTML = "";
+  if (!list.length) return;
+  list.forEach((f) => {
+    const per = f.unit === "g" || f.unit === "ml" ? `per 100${f.unit}` : `per ${f.unit}`;
+    const row = el(`
+      <button class="food-opt" type="button">
+        <span class="fo-name">${escapeHtml(f.n)}${online ? ` <span class="fo-tag">online</span>` : ""}</span>
+        <span class="fo-kcal">${Math.round(f.cal)} kcal <small>${per}</small></span>
+      </button>`);
+    row.onclick = () => selectFood(f);
+    wrap.appendChild(row);
+  });
+}
+
+function searchFoods(q) {
+  const query = q.trim().toLowerCase();
+  if (!query) { $("#f-results").innerHTML = ""; return; }
+  const matches = FOODS.filter((f) => f.n.toLowerCase().includes(query)).slice(0, 14);
+  renderFoodResults(matches);
+}
+
+function selectFood(f) {
+  selectedFood = f;
+  $("#f-name").value = f.n;
+  $("#f-qty").value = f.unit === "g" || f.unit === "ml" ? 100 : 1;
+  $("#f-unit").textContent = foodQtyLabel(f);
+  $("#f-qty-wrap").classList.remove("hidden");
+  $("#f-search").value = "";
+  $("#f-results").innerHTML = "";  recalcFood();
+}
+
+function recalcFood() {
+  if (!selectedFood) return;
+  const q = +$("#f-qty").value || 0;
+  const mult = q / selectedFood.base;
+  $("#f-cal").value = Math.round(selectedFood.cal * mult);
+  $("#f-protein").value = +(selectedFood.p * mult).toFixed(1);
+  $("#f-carbs").value = +(selectedFood.c * mult).toFixed(1);
+  $("#f-fat").value = +(selectedFood.f * mult).toFixed(1);
+}
+
+let searchTimer;
+$("#f-search").addEventListener("input", (e) => {
+  clearTimeout(searchTimer);
+  const v = e.target.value;
+  searchTimer = setTimeout(() => searchFoods(v), 120);
+});
+$("#f-qty").addEventListener("input", recalcFood);
+// typing your own food name = manual entry, drop the picked food
+$("#f-name").addEventListener("input", () => {
+  selectedFood = null;
+  $("#f-qty-wrap").classList.add("hidden");
+});
+
+function collectMealFields() {
+  let name = $("#f-name").value.trim() || "Food";
+  if (selectedFood) {
+    const q = +$("#f-qty").value || 0;
+    if (q) name += ` · ${q} ${foodQtyLabel(selectedFood)}`;
+  }
+  return {
+    type: mealType,
+    name,
+    calories: +$("#f-cal").value || 0,
+    protein: +$("#f-protein").value || 0,
+    carbs: +$("#f-carbs").value || 0,
+    fat: +$("#f-fat").value || 0,
+  };
+}
+function mealFormEmpty() {
+  return !$("#f-name").value.trim() && !(+$("#f-cal").value);
+}
+// clear the form to log the next item, keeping the meal type and modal open
+function resetMealForm() {
+  editingMealId = null;
+  selectedFood = null;
+  ["#f-name", "#f-cal", "#f-protein", "#f-carbs", "#f-fat", "#f-search", "#f-qty"].forEach((s) => ($(s).value = ""));
+  $("#f-results").innerHTML = "";
+  $("#f-qty-wrap").classList.add("hidden");  $("#meal-modal-title").textContent = "Log Food";
+}
+
+$("#save-meal").onclick = () => {
+  const fields = collectMealFields();
+  const meals = dayData().meals;
+  if (editingMealId) {
+    const m = meals.find((x) => x.id === editingMealId);
+    if (m) Object.assign(m, fields);
+  } else {
+    meals.push({ id: uid(), ...fields });
+  }
+  editingMealId = null;
+  save(); renderAll(); closeModal("#meal-modal");
+};
+
+// save current item and keep the sheet open to add the next one
+$("#add-another-meal").onclick = () => {
+  if (mealFormEmpty()) { $("#f-search").focus(); return; }
+  dayData().meals.push({ id: uid(), ...collectMealFields() });
+  save(); renderAll();
+  resetMealForm();
+  flash($("#add-another-meal"), "Added ✓ — next item");
+  setTimeout(() => $("#f-search").focus(), 60);
+};
+
+/* ---------- cardio modal (timed cardio + step-based walks) ---------- */
+function fillCardioSelect() {
+  $("#c-type").innerHTML = CARDIO_OPTIONS.map((o, i) => `<option value="${i}">${o.name}</option>`).join("");
+}
+function recalcCardio() {
+  const o = CARDIO_OPTIONS[+$("#c-type").value] || CARDIO_OPTIONS[0];
+  const min = +$("#c-min").value || 0;
+  const steps = +$("#c-steps").value || 0;
+  let est = 0;
+  if (min) est = estimateCardioKcal(o.met, min);
+  else if (steps) est = estimateStepKcal(steps);
+  $("#c-burned").value = est || "";
+  $("#c-hint").textContent = min ? `≈ ${est} kcal from ${min} min`
+    : steps ? `≈ ${est} kcal from ${steps.toLocaleString()} steps`
+    : "Enter minutes, or steps for a walk.";
+}
+let editingCardioId = null;
+
+$("#add-cardio-btn").onclick = () => {
+  editingCardioId = null;
+  fillCardioSelect();
+  $("#c-type").value = "0"; $("#c-min").value = ""; $("#c-steps").value = ""; $("#c-burned").value = "";
+  $("#c-hint").textContent = "Enter minutes, or steps for a walk.";
+  $("#cardio-modal-title").textContent = "Log Cardio";
+  openModal("#cardio-modal");
+};
+
+function openCardioEdit(c) {
+  editingCardioId = c.id;
+  fillCardioSelect();
+  const idx = CARDIO_OPTIONS.findIndex((o) => o.name === c.type);
+  $("#c-type").value = idx >= 0 ? idx : 0;
+  $("#c-min").value = c.minutes || "";
+  $("#c-steps").value = c.steps || "";
+  $("#c-burned").value = c.burned || "";
+  $("#c-hint").textContent = "";
+  $("#cardio-modal-title").textContent = "Edit Cardio";
+  openModal("#cardio-modal");
+}
+$("#c-type").onchange = recalcCardio;
+$("#c-min").oninput = recalcCardio;
+$("#c-steps").oninput = recalcCardio;
+// office-walk presets: set Walking + steps, auto kcal
+$("#c-presets").querySelectorAll("button").forEach((b) => {
+  b.onclick = () => {
+    fillCardioSelect();
+    $("#c-type").value = "0"; // Walking (brisk)
+    $("#c-min").value = "";
+    $("#c-steps").value = b.dataset.steps;
+    recalcCardio();
+  };
+});
+$("#save-cardio").onclick = () => {
+  const o = CARDIO_OPTIONS[+$("#c-type").value] || CARDIO_OPTIONS[0];
+  const min = +$("#c-min").value || 0;
+  const steps = +$("#c-steps").value || 0;
+  if (!min && !steps) { closeModal("#cardio-modal"); return; }
+  const fields = { type: o.name, minutes: min, steps, burned: +$("#c-burned").value || 0 };
+  const cardio = dayData().cardio;
+  if (editingCardioId) {
+    const c = cardio.find((x) => x.id === editingCardioId);
+    if (c) Object.assign(c, fields);
+  } else {
+    cardio.push({ id: uid(), ...fields });
+  }
+  editingCardioId = null;
+  save(); renderAll(); closeModal("#cardio-modal");
+};
+
+/* ---------- expense modal ---------- */
+let editingExpenseId = null;
+let expCategory = "Travel";
+let expSub = "Metro";
+
+function setExpCategory(cat) {
+  expCategory = cat;
+  $("#e-cat-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.cat === cat));
+  $("#e-sub-wrap").classList.toggle("hidden", cat !== "Travel");
+}
+function renderTravelSubs() {
+  const seg = $("#e-sub-seg");
+  seg.innerHTML = TRAVEL_SUBS.map((s) => `<button type="button" data-sub="${s}" class="${s === expSub ? "active" : ""}">${s}</button>`).join("");
+  seg.querySelectorAll("button").forEach((b) => {
+    b.onclick = () => {
+      seg.querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active"); expSub = b.dataset.sub;
+    };
+  });
+}
+$("#e-cat-seg").querySelectorAll("button").forEach((b) => {
+  b.onclick = () => setExpCategory(b.dataset.cat);
+});
+
+$("#add-expense-btn").onclick = () => {
+  editingExpenseId = null;
+  $("#e-amount").value = ""; $("#e-note").value = "";
+  // default the date to the month you're viewing, so adding to past months is easy
+  const today = new Date();
+  $("#e-date").value = monthKey(expenseMonth) === monthKey(today)
+    ? keyOf(today)
+    : keyOf(new Date(expenseMonth.getFullYear(), expenseMonth.getMonth(), 1));
+  expCategory = "Travel"; expSub = "Metro";
+  setExpCategory("Travel"); renderTravelSubs();
+  $("#expense-modal-title").textContent = "Add Expense";
+  openModal("#expense-modal");
+  setTimeout(() => $("#e-amount").focus(), 100);
+};
+
+function openExpenseEdit(e) {
+  editingExpenseId = e.id;
+  $("#e-amount").value = e.amount || ""; $("#e-note").value = e.note || "";
+  $("#e-date").value = e.date || keyOf(new Date());
+  expCategory = e.category || "Travel"; expSub = e.sub || "Metro";
+  setExpCategory(expCategory); renderTravelSubs();
+  $("#expense-modal-title").textContent = "Edit Expense";
+  openModal("#expense-modal");
+}
+
+$("#save-expense").onclick = () => {
+  const amount = +$("#e-amount").value || 0;
+  if (!amount) { closeModal("#expense-modal"); return; }
+  const fields = {
+    date: $("#e-date").value || keyOf(new Date()),
+    amount,
+    kind: "expense",
+    category: expCategory,
+    sub: expCategory === "Travel" ? expSub : null,
+    note: $("#e-note").value.trim(),
+  };
+  if (editingExpenseId) {
+    const ex = DATA.expenses.find((x) => x.id === editingExpenseId);
+    if (ex) Object.assign(ex, fields);
+  } else {
+    DATA.expenses.push({ id: uid(), ...fields });
+  }
+  editingExpenseId = null;
+  expenseMonth = new Date(fields.date + "T12:00:00"); // show the month we just edited
+  save(); renderExpenses(); closeModal("#expense-modal");
+};
+
+/* ---------- earning (income) modal ---------- */
+let editingIncomeId = null;
+$("#add-income-btn").onclick = () => {
+  editingIncomeId = null;
+  $("#i-amount").value = ""; $("#i-note").value = "";
+  const today = new Date();
+  $("#i-date").value = monthKey(expenseMonth) === monthKey(today)
+    ? keyOf(today)
+    : keyOf(new Date(expenseMonth.getFullYear(), expenseMonth.getMonth(), 1));
+  $("#income-modal-title").textContent = "Add Earning";
+  openModal("#income-modal");
+  setTimeout(() => $("#i-amount").focus(), 100);
+};
+function openIncomeEdit(e) {
+  editingIncomeId = e.id;
+  $("#i-amount").value = e.amount || ""; $("#i-note").value = e.note || "";
+  $("#i-date").value = e.date || keyOf(new Date());
+  $("#income-modal-title").textContent = "Edit Earning";
+  openModal("#income-modal");
+}
+$("#save-income").onclick = () => {
+  const amount = +$("#i-amount").value || 0;
+  if (!amount) { closeModal("#income-modal"); return; }
+  const fields = {
+    date: $("#i-date").value || keyOf(new Date()),
+    amount, kind: "income", category: null, sub: null,
+    note: $("#i-note").value.trim(),
+  };
+  if (editingIncomeId) {
+    const ex = DATA.expenses.find((x) => x.id === editingIncomeId);
+    if (ex) Object.assign(ex, fields);
+  } else {
+    DATA.expenses.push({ id: uid(), ...fields });
+  }
+  editingIncomeId = null;
+  expenseMonth = new Date(fields.date + "T12:00:00");
+  save(); renderExpenses(); closeModal("#income-modal");
+};
+
+$("#exp-prev").onclick = () => { expenseMonth.setDate(1); expenseMonth.setMonth(expenseMonth.getMonth() - 1); renderExpenses(); };
+$("#exp-next").onclick = () => {
+  if (monthKey(expenseMonth) === monthKey(new Date())) return;
+  expenseMonth.setDate(1); expenseMonth.setMonth(expenseMonth.getMonth() + 1); renderExpenses();
+};
+/* ---------- weight modal ---------- */
+$("#log-weight-btn").onclick = () => {
+  $("#wt-date").value = keyOf(new Date());
+  $("#wt-kg").value = latestWeight() ?? DATA.goals.weight ?? "";
+  openModal("#weight-modal");
+};
+$("#save-weight").onclick = () => {
+  const date = $("#wt-date").value || keyOf(new Date());
+  const kg = +$("#wt-kg").value;
+  if (!kg) { closeModal("#weight-modal"); return; }
+  DATA.weights = DATA.weights.filter((w) => w.date !== date);
+  DATA.weights.push({ date, kg });
+  DATA.goals.weight = latestWeight();
+  save(); renderAll(); closeModal("#weight-modal");
+};
+
+/* ============================================================
+   PROFILE / GOALS
+============================================================ */
+["#p-start", "#p-weight", "#p-target", "#p-rate"].forEach((s) => {
+  $(s).addEventListener("input", updatePlanReadout);
+});
+$("#suggest-cal-btn").onclick = () => {
+  const kg = +$("#p-weight").value || +$("#p-start").value || 0;
+  const rate = +$("#p-rate").value || 0.5;
+  $("#p-cal-goal").value = suggestedCalories(kg, rate);
+};
+$("#save-profile-btn").onclick = () => {
+  const g = DATA.goals;
+  g.calories = +$("#p-cal-goal").value || 0;
+  g.protein = +$("#p-protein").value || 0;
+  g.carbs = +$("#p-carbs").value || 0;
+  g.fat = +$("#p-fat").value || 0;
+  g.startWeight = $("#p-start").value ? +$("#p-start").value : null;
+  g.targetWeight = $("#p-target").value ? +$("#p-target").value : null;
+  g.weeklyRate = $("#p-rate").value ? +$("#p-rate").value : 0.5;
+  g.cardioGoal = +$("#p-cardio-goal").value || 0;
+  g.stepsGoal = +$("#p-steps-goal").value || 0;
+  g.strengthGoal = +$("#p-strength-goal").value || 0;
+  // current weight: keep weight-log in sync if edited here
+  const cur = $("#p-weight").value ? +$("#p-weight").value : null;
+  if (cur != null && cur !== latestWeight()) {
+    const today = keyOf(new Date());
+    DATA.weights = DATA.weights.filter((w) => w.date !== today);
+    DATA.weights.push({ date: today, kg: cur });
+  }
+  g.weight = latestWeight() ?? cur;
+  save(); renderAll();
+  flash($("#save-profile-btn"), "Saved ✓");
+};
+
+function flash(btn, msg) {
+  const old = btn.textContent; btn.textContent = msg;
+  setTimeout(() => (btn.textContent = old), 1200);
+}
+
+/* export / import / reset */
+$("#export-btn").onclick = () => {
+  const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `fittrack-backup-${keyOf(new Date())}.json`; a.click();
+  URL.revokeObjectURL(url);
+};
+$("#import-btn").onclick = () => $("#import-file").click();
+$("#import-file").onchange = (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (!parsed.days || !parsed.goals) throw new Error("bad file");
+      DATA = { ...structuredClone(DEFAULT_DATA), ...parsed,
+               goals: { ...DEFAULT_DATA.goals, ...parsed.goals },
+               weights: Array.isArray(parsed.weights) ? parsed.weights : [],
+               expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+               currency: parsed.currency || "₹" };
+      save(); renderAll(); renderProfile();
+      flash($("#import-btn"), "Imported ✓");
+    } catch { alert("Could not read that backup file."); }
+  };
+  reader.readAsText(file);
+};
+$("#reset-btn").onclick = () => {
+  if (confirm("Erase ALL workouts, meals and goals on this device? This cannot be undone.")) {
+    DATA = structuredClone(DEFAULT_DATA); save(); renderAll(); renderProfile();
+  }
+};
+
+/* ============================================================
+   CLOUD SYNC (Supabase) — optional, free tier
+============================================================ */
+const SYNC_CFG_KEY = "fittrack_sync_cfg";
+const META_KEY = "fittrack_meta";
+let sb = null;       // supabase client
+let sbUser = null;   // signed-in user
+let pushTimer = null;
+
+function syncCfg() { try { return JSON.parse(localStorage.getItem(SYNC_CFG_KEY)); } catch { return null; } }
+function localModified() { try { return JSON.parse(localStorage.getItem(META_KEY))?.lastModified || 0; } catch { return 0; } }
+function setLocalModified(iso) { localStorage.setItem(META_KEY, JSON.stringify({ lastModified: iso || new Date().toISOString() })); }
+function syncStatus(msg) { const e = $("#sync-status"); if (e) e.textContent = msg; }
+
+function initSupabase() {
+  const cfg = syncCfg();
+  if (!cfg || !window.supabase) return false;
+  try { sb = window.supabase.createClient(cfg.url, cfg.key); return true; } catch { return false; }
+}
+
+function refreshSyncUI() {
+  if (!$("#sb-url")) return;
+  const cfg = syncCfg();
+  $("#sb-url").value = cfg?.url || "";
+  $("#sb-key").value = cfg?.key || "";
+  $("#sync-auth").classList.toggle("hidden", !sb || !!sbUser);
+  $("#sync-account").classList.toggle("hidden", !sbUser);
+  if (!window.supabase) syncStatus("Offline — sync library not loaded yet.");
+  else if (!cfg) syncStatus("Not connected. Paste your Supabase URL + anon key, then Save connection.");
+  else if (!sb) syncStatus("Connection saved, but couldn't start. Check the URL/key.");
+  else if (sbUser) syncStatus(`✓ Synced as ${sbUser.email}`);
+  else syncStatus("Connected. Sign in (or sign up) to sync across devices.");
+}
+
+async function pullFromCloud() {
+  if (!sb || !sbUser) return "no";
+  const { data, error } = await sb.from("fittrack").select("data, updated_at").eq("user_id", sbUser.id).maybeSingle();
+  if (error) { syncStatus("Sync error: " + error.message); return "error"; }
+  if (data && data.data) {
+    const remoteTime = new Date(data.updated_at).getTime();
+    if (remoteTime > new Date(localModified() || 0).getTime()) {
+      const r = data.data;
+      DATA = { ...structuredClone(DEFAULT_DATA), ...r,
+        goals: { ...DEFAULT_DATA.goals, ...(r.goals || {}) },
+        weights: Array.isArray(r.weights) ? r.weights : [],
+        expenses: Array.isArray(r.expenses) ? r.expenses : [],
+        currency: r.currency || "₹" };
+      localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+      setLocalModified(data.updated_at);
+      renderAll(); if (!$("#screen-profile").classList.contains("hidden")) renderProfile();
+      return "pulled";
+    }
+  }
+  return "local-newer";
+}
+
+async function pushToCloud() {
+  if (!sb || !sbUser) return;
+  const now = new Date().toISOString();
+  const { error } = await sb.from("fittrack").upsert({ user_id: sbUser.id, data: DATA, updated_at: now });
+  if (error) { syncStatus("Push error: " + error.message); return; }
+  setLocalModified(now);
+  syncStatus(`✓ Synced ${new Date().toLocaleTimeString()}`);
+}
+
+async function pullThenPush() {
+  syncStatus("Syncing…");
+  const r = await pullFromCloud();
+  if (r === "local-newer" || r === "no") await pushToCloud();
+  else if (r === "pulled") syncStatus("✓ Pulled latest from cloud");
+  refreshSyncUI();
+}
+
+// called by save() — debounced upload
+function cloudOnSave() {
+  setLocalModified();
+  if (!sb || !sbUser) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushToCloud, 1500);
+}
+
+async function bootSession() {
+  if (!initSupabase()) { refreshSyncUI(); return; }
+  try {
+    const { data } = await sb.auth.getSession();
+    sbUser = data?.session?.user || null;
+    if (sbUser) await pullThenPush();
+  } catch {}
+  refreshSyncUI();
+}
+
+function bindSyncUI() {
+  if (!$("#sb-save-config")) return;
+  $("#sb-save-config").onclick = () => {
+    const url = $("#sb-url").value.trim(), key = $("#sb-key").value.trim();
+    if (!url || !key) { alert("Enter both the Supabase URL and the anon key."); return; }
+    localStorage.setItem(SYNC_CFG_KEY, JSON.stringify({ url, key }));
+    initSupabase(); bootSession();
+  };
+  $("#sb-signup").onclick = async () => {
+    if (!sb) return;
+    syncStatus("Creating account…");
+    const { error } = await sb.auth.signUp({ email: $("#sb-email").value.trim(), password: $("#sb-pass").value });
+    syncStatus(error ? "Sign up failed: " + error.message : "Account created — now tap Sign in.");
+  };
+  $("#sb-signin").onclick = async () => {
+    if (!sb) return;
+    syncStatus("Signing in…");
+    const { data, error } = await sb.auth.signInWithPassword({ email: $("#sb-email").value.trim(), password: $("#sb-pass").value });
+    if (error) { syncStatus("Sign in failed: " + error.message); return; }
+    sbUser = data.user; $("#sb-pass").value = "";
+    await pullThenPush();
+  };
+  $("#sb-signout").onclick = async () => { try { await sb?.auth.signOut(); } catch {} sbUser = null; refreshSyncUI(); };
+  $("#sb-syncnow").onclick = () => pullThenPush();
+}
+
+// pull when returning to the app (other device may have changed things)
+document.addEventListener("visibilitychange", () => { if (!document.hidden && sbUser) pullFromCloud(); });
+
+/* ============================================================
+   BOOT
+============================================================ */
+renderAll();
+showScreen("dashboard");
+bindSyncUI();
+bootSession();
+
+/* register service worker for offline */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
