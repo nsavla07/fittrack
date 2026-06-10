@@ -348,6 +348,7 @@ const FOODS = [
   { n: "McDonald's McAloo Tikki", unit: "burger", base: 1, cal: 330, p: 8, c: 50, f: 11 },
   { n: "McDonald's McVeggie", unit: "burger", base: 1, cal: 400, p: 11, c: 53, f: 16 },
   { n: "McDonald's McSpicy Paneer", unit: "burger", base: 1, cal: 650, p: 18, c: 60, f: 37 },
+  { n: "McDonald's McSpicy Paneer (protein)", unit: "burger", base: 1, cal: 700, p: 30, c: 55, f: 38 },
   { n: "McDonald's Veg Maharaja Mac", unit: "burger", base: 1, cal: 510, p: 14, c: 56, f: 25 },
   { n: "McDonald's McSpicy Premium Veg", unit: "burger", base: 1, cal: 530, p: 13, c: 58, f: 27 },
   { n: "McDonald's Pizza McPuff", unit: "piece", base: 1, cal: 230, p: 5, c: 27, f: 11 },
