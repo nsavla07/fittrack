@@ -91,6 +91,11 @@
         </div>
       </section>
 
+      <!-- ============ TRIPS ============ -->
+      <section class="screen hidden" id="screen-trips">
+        <div id="trips-body"></div>
+      </section>
+
       <!-- ============ NUTRITION ============ -->
       <section class="screen hidden" id="screen-nutrition">
         <div class="card summary-mini">
@@ -174,6 +179,7 @@
       <button class="tab" data-screen="nutrition"><span class="ico">🍎</span><small>Food</small></button>
       <button class="tab" data-screen="progress"><span class="ico">📈</span><small>Progress</small></button>
       <button class="tab" data-screen="expenses"><span class="ico">💸</span><small>Spend</small></button>
+      <button class="tab" data-screen="trips"><span class="ico">🧳</span><small>Trips</small></button>
       <button class="tab" data-screen="profile"><span class="ico">⚙</span><small>Goals</small></button>
     </nav>
   </div>
@@ -314,6 +320,43 @@
         <label class="field"><span>Amount earned (₹)</span><input type="number" id="i-amount" inputmode="decimal" placeholder="0" /></label>
         <label class="field"><span>Note (optional)</span><input type="text" id="i-note" placeholder="e.g. salary, freelance" /></label>
         <label class="field"><span>Date</span><input type="date" id="i-date" class="select" /></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: TRIP ============ -->
+  <div class="modal-backdrop hidden" id="trip-modal">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="link-btn" data-close>Cancel</button>
+        <b id="trip-modal-title">New Trip</b>
+        <button class="link-btn strong" id="save-trip">Save</button>
+      </div>
+      <div class="sheet-body">
+        <label class="field"><span>Trip name</span><input type="text" id="t-name" placeholder="e.g. Goa, Manali" autocomplete="off" /></label>
+        <div class="grid2">
+          <label class="field"><span>Start date</span><input type="date" id="t-start" class="select" /></label>
+          <label class="field"><span>End date</span><input type="date" id="t-end" class="select" /></label>
+        </div>
+        <label class="field"><span>Note (optional)</span><input type="text" id="t-note" placeholder="e.g. with family" /></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: TRIP EXPENSE ============ -->
+  <div class="modal-backdrop hidden" id="trip-item-modal">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="link-btn" data-close>Cancel</button>
+        <b id="trip-item-modal-title">Add Trip Expense</b>
+        <button class="link-btn strong" id="save-trip-item">Save</button>
+      </div>
+      <div class="sheet-body">
+        <span class="seg-label">Category</span>
+        <div class="seg seg-wrap" id="ti-cat-seg"></div>
+        <label class="field"><span>Amount (₹)</span><input type="number" id="ti-amount" inputmode="decimal" placeholder="0" /></label>
+        <label class="field"><span>Note (optional)</span><input type="text" id="ti-note" placeholder="e.g. hotel, cab, lunch" /></label>
+        <label class="field"><span>Date</span><input type="date" id="ti-date" class="select" /></label>
       </div>
     </div>
   </div>

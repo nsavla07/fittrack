@@ -14,11 +14,13 @@ const DEFAULT_DATA = {
   days: {},     // { "2026-06-01": { workouts: [], meals: [], cardio: [] } }
   weights: [],  // [{ date: "2026-06-01", kg: 75 }]
   expenses: [], // [{ id, date: "2026-06-01", amount, category, sub, note }]
+  trips: [],    // [{ id, name, startDate, endDate, note, items: [{ id, date, amount, category, note }] }]
   currency: "₹",
 };
 
 const EXPENSE_CATEGORIES = ["Travel", "Randoms", "Sports"];
 const TRAVEL_SUBS = ["Metro", "Bus", "Auto", "Other"];
+const TRIP_CATEGORIES = ["Travel", "Stay", "Food", "Activities", "Shopping", "Other"];
 
 /* cardio activities + MET values for calorie estimation */
 const CARDIO_OPTIONS = [
@@ -211,6 +213,16 @@ const FOODS = [
   { n: "Aloo sandwich", unit: "sandwich", base: 1, cal: 260, p: 6, c: 38, f: 9 },
   { n: "Chutney sandwich", unit: "sandwich", base: 1, cal: 180, p: 5, c: 28, f: 5 },
   { n: "Club sandwich (veg)", unit: "sandwich", base: 1, cal: 400, p: 12, c: 45, f: 18 },
+  // Subway (veg) — 6-inch on wheat unless noted
+  { n: "Subway Paneer Tikka (6-inch)", unit: "sub", base: 1, cal: 380, p: 17, c: 46, f: 14 },
+  { n: "Subway Paneer Tikka (footlong)", unit: "sub", base: 1, cal: 760, p: 34, c: 92, f: 28 },
+  { n: "Subway Aloo Patty (6-inch)", unit: "sub", base: 1, cal: 360, p: 11, c: 50, f: 12 },
+  { n: "Subway Veggie Delite (6-inch)", unit: "sub", base: 1, cal: 230, p: 9, c: 44, f: 3 },
+  { n: "Subway Veg Shammi (6-inch)", unit: "sub", base: 1, cal: 370, p: 13, c: 48, f: 13 },
+  { n: "Subway Corn & Peas (6-inch)", unit: "sub", base: 1, cal: 320, p: 11, c: 50, f: 7 },
+  { n: "Subway Mexican Patty (6-inch)", unit: "sub", base: 1, cal: 350, p: 11, c: 49, f: 11 },
+  { n: "Subway Paneer Tikka wrap", unit: "wrap", base: 1, cal: 420, p: 18, c: 44, f: 18 },
+  { n: "Subway Veg salad bowl", unit: "bowl", base: 1, cal: 140, p: 6, c: 18, f: 4 },
   // more sabzis & curries (veg)
   { n: "Matar paneer", unit: "bowl", base: 1, cal: 300, p: 13, c: 16, f: 20 },
   { n: "Paneer bhurji", unit: "bowl", base: 1, cal: 280, p: 16, c: 8, f: 20 },
@@ -252,8 +264,20 @@ const FOODS = [
   { n: "Fruit salad", unit: "bowl", base: 1, cal: 120, p: 2, c: 28, f: 1 },
   { n: "Kheer / payasam", unit: "bowl", base: 1, cal: 250, p: 6, c: 40, f: 8 },
   { n: "Gulab jamun", unit: "piece", base: 1, cal: 150, p: 2, c: 25, f: 6 },
+  { n: "Rabdi", unit: "bowl", base: 1, cal: 280, p: 7, c: 32, f: 14 },
+  { n: "Rabdi gulab jamun", unit: "bowl (2 + rabdi)", base: 1, cal: 450, p: 8, c: 58, f: 20 },
   { n: "Jalebi", unit: "piece", base: 1, cal: 150, p: 1, c: 28, f: 5 },
+  { n: "Jalebi with rabdi", unit: "plate", base: 1, cal: 420, p: 6, c: 60, f: 18 },
   { n: "Rasgulla", unit: "piece", base: 1, cal: 125, p: 2, c: 27, f: 1 },
+  { n: "Rasmalai", unit: "piece", base: 1, cal: 185, p: 5, c: 22, f: 8 },
+  { n: "Gajar ka halwa", unit: "bowl", base: 1, cal: 350, p: 5, c: 42, f: 18 },
+  { n: "Moong dal halwa", unit: "bowl", base: 1, cal: 400, p: 7, c: 44, f: 22 },
+  { n: "Kaju katli", unit: "piece", base: 1, cal: 70, p: 1.5, c: 8, f: 4 },
+  { n: "Besan ladoo", unit: "piece", base: 1, cal: 180, p: 3, c: 20, f: 10 },
+  { n: "Motichoor ladoo", unit: "piece", base: 1, cal: 175, p: 2, c: 24, f: 8 },
+  { n: "Soan papdi", unit: "piece", base: 1, cal: 110, p: 1.5, c: 16, f: 5 },
+  { n: "Kulfi", unit: "piece", base: 1, cal: 200, p: 5, c: 22, f: 10 },
+  { n: "Gajar halwa with rabdi", unit: "bowl", base: 1, cal: 480, p: 8, c: 52, f: 26 },
   { n: "Halwa", unit: "bowl", base: 1, cal: 300, p: 4, c: 40, f: 14 },
   // fruit
   { n: "Banana", unit: "medium banana", base: 1, cal: 105, p: 1.3, c: 27, f: 0.4 },
@@ -345,6 +369,7 @@ function load() {
              goals: { ...DEFAULT_DATA.goals, ...(parsed.goals || {}) },
              weights: Array.isArray(parsed.weights) ? parsed.weights : [],
              expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+             trips: Array.isArray(parsed.trips) ? parsed.trips : [],
              currency: parsed.currency || "₹" };
   } catch { return structuredClone(DEFAULT_DATA); }
 }
@@ -879,6 +904,7 @@ function renderAll() {
   renderNutrition();
   renderProgress();
   renderExpenses();
+  renderTrips();
 }
 
 function escapeHtml(s) {
@@ -909,20 +935,21 @@ function removeActivity(id) {
 /* ============================================================
    NAVIGATION
 ============================================================ */
-const TITLES = { dashboard: "Today", workouts: "Workouts", nutrition: "Nutrition", progress: "Progress", expenses: "Expenses", profile: "Goals" };
+const TITLES = { dashboard: "Today", workouts: "Workouts", nutrition: "Nutrition", progress: "Progress", expenses: "Expenses", trips: "Trips", profile: "Goals" };
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.add("hidden"));
   $("#screen-" + name).classList.remove("hidden");
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.screen === name));
   $("#screen-title").textContent = TITLES[name];
   // date switcher only relevant for day-based screens
-  const showDate = name !== "profile" && name !== "progress" && name !== "expenses";
+  const showDate = name !== "profile" && name !== "progress" && name !== "expenses" && name !== "trips";
   $("#date-prev").style.display = showDate ? "" : "none";
   $("#date-next").style.display = showDate ? "" : "none";
   $("#date-label").style.display = showDate ? "" : "none";
   if (name === "profile") renderProfile();
   if (name === "progress") renderProgress();
   if (name === "expenses") renderExpenses();
+  if (name === "trips") { openTripId = null; renderTrips(); }
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {
@@ -1420,6 +1447,233 @@ $("#exp-next").onclick = () => {
   if (monthKey(expenseMonth) === monthKey(new Date())) return;
   expenseMonth.setDate(1); expenseMonth.setMonth(expenseMonth.getMonth() + 1); renderExpenses();
 };
+
+/* ============================================================
+   TRIPS — each trip holds its own list of expenses
+============================================================ */
+let openTripId = null;       // null = trip list, else show that trip's detail
+let editingTripId = null;
+let editingTripItem = null;  // { tripId, itemId } when editing an item
+let tiCategory = "Food";
+
+function tripTotal(t) { return (t.items || []).reduce((s, i) => s + (+i.amount || 0), 0); }
+
+function tripDateRange(t) {
+  if (!t.startDate) return "";
+  const fmt = (s) => new Date(s + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return t.endDate && t.endDate !== t.startDate ? `${fmt(t.startDate)} – ${fmt(t.endDate)}` : fmt(t.startDate);
+}
+
+function renderTrips() {
+  const wrap = $("#trips-body");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  const open = openTripId ? DATA.trips.find((t) => t.id === openTripId) : null;
+  if (open) renderTripDetail(wrap, open);
+  else renderTripList(wrap);
+}
+
+function renderTripList(wrap) {
+  const trips = [...DATA.trips].sort((a, b) => ((b.startDate || "") < (a.startDate || "") ? -1 : 1));
+  const grand = trips.reduce((s, t) => s + tripTotal(t), 0);
+
+  wrap.appendChild(el(`
+    <div class="card exp-total-card">
+      <div class="exp-total">${money(grand)}</div>
+      <div class="muted small">total across ${trips.length} trip${trips.length === 1 ? "" : "s"}</div>
+    </div>`));
+
+  const list = el(`<div class="card-list"></div>`);
+  if (!trips.length) list.appendChild(el(`<div class="empty">No trips yet. Tap below to add one.</div>`));
+  trips.forEach((t) => {
+    const range = tripDateRange(t);
+    const meta = [range, `${(t.items || []).length} item${(t.items || []).length === 1 ? "" : "s"}`]
+      .filter(Boolean).join(" · ");
+    const node = el(`
+      <div class="item exp-cell">
+        <div class="grow tappable">
+          <div class="title">${escapeHtml(t.name || "Trip")}</div>
+          <div class="sub">${escapeHtml(meta)}</div>
+        </div>
+        <div class="title money">${money(tripTotal(t))}</div>
+        <div class="item-actions">
+          <button class="edit" aria-label="Edit">✎</button>
+          <button class="del" aria-label="Delete">✕</button>
+        </div>
+      </div>`);
+    node.querySelector(".grow").onclick = () => { openTripId = t.id; renderTrips(); };
+    node.querySelector(".edit").onclick = () => openTripEdit(t);
+    node.querySelector(".del").onclick = () => removeTrip(t.id);
+    list.appendChild(node);
+  });
+  wrap.appendChild(list);
+
+  const actions = el(`<div class="btn-row"><button class="primary-btn" id="add-trip-btn">+ New Trip</button></div>`);
+  actions.querySelector("#add-trip-btn").onclick = openTripAdd;
+  wrap.appendChild(actions);
+}
+
+function renderTripDetail(wrap, t) {
+  const back = el(`<button class="ghost-btn" style="margin-bottom:12px">‹ All trips</button>`);
+  back.onclick = () => { openTripId = null; renderTrips(); };
+  wrap.appendChild(back);
+
+  const range = tripDateRange(t);
+  wrap.appendChild(el(`
+    <div class="card exp-total-card">
+      <div class="exp-total">${money(tripTotal(t))}</div>
+      <div class="muted small">${escapeHtml(t.name || "Trip")}${range ? " · " + range : ""}</div>
+      ${t.note ? `<div class="net-line"><span>${escapeHtml(t.note)}</span></div>` : ""}
+    </div>`));
+
+  // category breakdown
+  const byCat = {};
+  (t.items || []).forEach((i) => { byCat[i.category] = (byCat[i.category] || 0) + (+i.amount || 0); });
+  const total = tripTotal(t);
+  const catRows = TRIP_CATEGORIES.filter((c) => byCat[c] > 0).map((c) => {
+    const amt = byCat[c] || 0;
+    const pct = total > 0 ? Math.round((amt / total) * 100) : 0;
+    return `<div class="cat-row">
+        <div class="cat-top"><span class="cat-name">${c}</span><span class="cat-amt">${money(amt)}</span></div>
+        <div class="cat-bar"><span style="width:${pct}%;background:var(--accent)"></span></div>
+      </div>`;
+  }).join("");
+  if (catRows) wrap.appendChild(el(`<div class="card"><div class="week-head"><b>By category</b></div>${catRows}</div>`));
+
+  const card = el(`<div class="card"><div class="week-head"><b>Expenses</b><span class="muted">${(t.items || []).length}</span></div><div class="card-list" id="trip-item-list"></div></div>`);
+  wrap.appendChild(card);
+  const listWrap = card.querySelector("#trip-item-list");
+  const items = [...(t.items || [])].sort((a, b) => ((a.date || "") < (b.date || "") ? 1 : -1));
+  if (!items.length) listWrap.appendChild(el(`<div class="empty">No expenses yet.</div>`));
+  items.forEach((i) => listWrap.appendChild(tripItemCell(t, i)));
+
+  const actions = el(`<div class="btn-row"><button class="primary-btn" id="add-trip-item-btn">+ Add Expense</button></div>`);
+  actions.querySelector("#add-trip-item-btn").onclick = () => openTripItemAdd(t);
+  wrap.appendChild(actions);
+}
+
+function tripItemCell(t, i) {
+  const dateStr = i.date ? new Date(i.date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+  const meta = [(i.note ? escapeHtml(i.note) : ""), i.category, dateStr].filter(Boolean).join(" · ");
+  const node = el(`
+    <div class="item exp-cell">
+      <div class="grow tappable">
+        <div class="title money">${money(i.amount)}</div>
+        <div class="sub">${meta}</div>
+      </div>
+      <div class="item-actions">
+        <button class="edit" aria-label="Edit">✎</button>
+        <button class="del" aria-label="Delete">✕</button>
+      </div>
+    </div>`);
+  const openEdit = () => openTripItemEdit(t, i);
+  node.querySelector(".grow").onclick = openEdit;
+  node.querySelector(".edit").onclick = openEdit;
+  node.querySelector(".del").onclick = () => removeTripItem(t.id, i.id);
+  return node;
+}
+
+function removeTrip(id) {
+  if (!confirm("Delete this whole trip and its expenses?")) return;
+  DATA.trips = DATA.trips.filter((t) => t.id !== id);
+  if (openTripId === id) openTripId = null;
+  save(); renderTrips();
+}
+
+function removeTripItem(tripId, itemId) {
+  if (!confirm("Delete this expense?")) return;
+  const t = DATA.trips.find((x) => x.id === tripId);
+  if (t) t.items = (t.items || []).filter((i) => i.id !== itemId);
+  save(); renderTrips();
+}
+
+/* ---------- trip modal ---------- */
+function openTripAdd() {
+  editingTripId = null;
+  $("#t-name").value = ""; $("#t-note").value = "";
+  $("#t-start").value = keyOf(new Date()); $("#t-end").value = "";
+  $("#trip-modal-title").textContent = "New Trip";
+  openModal("#trip-modal");
+  setTimeout(() => $("#t-name").focus(), 100);
+}
+function openTripEdit(t) {
+  editingTripId = t.id;
+  $("#t-name").value = t.name || ""; $("#t-note").value = t.note || "";
+  $("#t-start").value = t.startDate || ""; $("#t-end").value = t.endDate || "";
+  $("#trip-modal-title").textContent = "Edit Trip";
+  openModal("#trip-modal");
+}
+$("#save-trip").onclick = () => {
+  const name = $("#t-name").value.trim();
+  if (!name) { closeModal("#trip-modal"); return; }
+  const fields = {
+    name,
+    startDate: $("#t-start").value || "",
+    endDate: $("#t-end").value || "",
+    note: $("#t-note").value.trim(),
+  };
+  if (editingTripId) {
+    const t = DATA.trips.find((x) => x.id === editingTripId);
+    if (t) Object.assign(t, fields);
+  } else {
+    const id = uid();
+    DATA.trips.push({ id, items: [], ...fields });
+    openTripId = id; // jump straight into the new trip
+  }
+  editingTripId = null;
+  save(); renderTrips(); closeModal("#trip-modal");
+};
+
+/* ---------- trip expense modal ---------- */
+function setTiCategory(cat) {
+  tiCategory = cat;
+  $("#ti-cat-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.cat === cat));
+}
+function renderTiCats() {
+  const seg = $("#ti-cat-seg");
+  seg.innerHTML = TRIP_CATEGORIES.map((c) => `<button type="button" data-cat="${c}" class="${c === tiCategory ? "active" : ""}">${c}</button>`).join("");
+  seg.querySelectorAll("button").forEach((b) => { b.onclick = () => setTiCategory(b.dataset.cat); });
+}
+function openTripItemAdd(t) {
+  editingTripItem = { tripId: t.id, itemId: null };
+  $("#ti-amount").value = ""; $("#ti-note").value = "";
+  $("#ti-date").value = t.startDate || keyOf(new Date());
+  tiCategory = "Food"; renderTiCats();
+  $("#trip-item-modal-title").textContent = "Add Trip Expense";
+  openModal("#trip-item-modal");
+  setTimeout(() => $("#ti-amount").focus(), 100);
+}
+function openTripItemEdit(t, i) {
+  editingTripItem = { tripId: t.id, itemId: i.id };
+  $("#ti-amount").value = i.amount || ""; $("#ti-note").value = i.note || "";
+  $("#ti-date").value = i.date || keyOf(new Date());
+  tiCategory = i.category || "Food"; renderTiCats();
+  $("#trip-item-modal-title").textContent = "Edit Trip Expense";
+  openModal("#trip-item-modal");
+}
+$("#save-trip-item").onclick = () => {
+  if (!editingTripItem) { closeModal("#trip-item-modal"); return; }
+  const amount = +$("#ti-amount").value || 0;
+  if (!amount) { closeModal("#trip-item-modal"); return; }
+  const t = DATA.trips.find((x) => x.id === editingTripItem.tripId);
+  if (!t) { closeModal("#trip-item-modal"); return; }
+  if (!Array.isArray(t.items)) t.items = [];
+  const fields = {
+    date: $("#ti-date").value || keyOf(new Date()),
+    amount,
+    category: tiCategory,
+    note: $("#ti-note").value.trim(),
+  };
+  if (editingTripItem.itemId) {
+    const it = t.items.find((x) => x.id === editingTripItem.itemId);
+    if (it) Object.assign(it, fields);
+  } else {
+    t.items.push({ id: uid(), ...fields });
+  }
+  editingTripItem = null;
+  save(); renderTrips(); closeModal("#trip-item-modal");
+};
+
 /* ---------- weight modal ---------- */
 $("#log-weight-btn").onclick = () => {
   $("#wt-date").value = keyOf(new Date());
@@ -1496,6 +1750,7 @@ $("#import-file").onchange = (e) => {
                goals: { ...DEFAULT_DATA.goals, ...parsed.goals },
                weights: Array.isArray(parsed.weights) ? parsed.weights : [],
                expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+               trips: Array.isArray(parsed.trips) ? parsed.trips : [],
                currency: parsed.currency || "₹" };
       save(); renderAll(); renderProfile();
       flash($("#import-btn"), "Imported ✓");
@@ -1555,6 +1810,7 @@ async function pullFromCloud() {
         goals: { ...DEFAULT_DATA.goals, ...(r.goals || {}) },
         weights: Array.isArray(r.weights) ? r.weights : [],
         expenses: Array.isArray(r.expenses) ? r.expenses : [],
+        trips: Array.isArray(r.trips) ? r.trips : [],
         currency: r.currency || "₹" };
       localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
       setLocalModified(data.updated_at);
