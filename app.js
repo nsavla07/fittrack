@@ -754,7 +754,8 @@ function renderNutrition() {
   const t = totals();
   const d = dayData();
   $("#nut-eaten").textContent = Math.round(t.eaten);
-  $("#nut-count").textContent = d.meals.length;
+  // count distinct meal sittings (Breakfast/Lunch/Dinner/Snack), not individual items
+  $("#nut-count").textContent = new Set(d.meals.map((m) => m.type || "Other")).size;
   const wrap = $("#meal-list"); wrap.innerHTML = "";
   if (!d.meals.length) wrap.appendChild(el(`<div class="empty">No food yet. Tap below to log a meal.</div>`));
   d.meals.forEach((m) => wrap.appendChild(mealItem(m, false)));
