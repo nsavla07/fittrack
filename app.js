@@ -299,6 +299,7 @@ const FOODS = [
   { n: "Strawberries", unit: "g", base: 100, cal: 32, p: 0.7, c: 7.7, f: 0.3 },
   { n: "Blueberries", unit: "g", base: 100, cal: 57, p: 0.7, c: 14, f: 0.3 },
   { n: "Grapes", unit: "g", base: 100, cal: 69, p: 0.7, c: 18, f: 0.2 },
+  { n: "Cherries", unit: "g", base: 100, cal: 63, p: 1.1, c: 16, f: 0.2 },
   { n: "Mango", unit: "g", base: 100, cal: 60, p: 0.8, c: 15, f: 0.4 },
   { n: "Pineapple", unit: "g", base: 100, cal: 50, p: 0.5, c: 13, f: 0.1 },
   { n: "Papaya", unit: "g", base: 100, cal: 43, p: 0.5, c: 11, f: 0.3 },
