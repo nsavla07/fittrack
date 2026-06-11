@@ -203,6 +203,17 @@ const FOODS = [
   { n: "Lassi (sweet)", unit: "glass", base: 1, cal: 180, p: 5, c: 30, f: 4 },
   { n: "Banana shake", unit: "glass", base: 1, cal: 250, p: 7, c: 40, f: 6 },
   { n: "Mango shake", unit: "glass", base: 1, cal: 220, p: 5, c: 40, f: 4 },
+  // shakes — no added sugar (fruit + milk only)
+  { n: "Banana shake (no sugar)", unit: "glass", base: 1, cal: 200, p: 8, c: 30, f: 5 },
+  { n: "Mango shake (no sugar)", unit: "glass", base: 1, cal: 190, p: 7, c: 30, f: 5 },
+  { n: "Strawberry shake (no sugar)", unit: "glass", base: 1, cal: 170, p: 7, c: 22, f: 5 },
+  { n: "Chikoo (sapota) shake (no sugar)", unit: "glass", base: 1, cal: 210, p: 7, c: 34, f: 5 },
+  { n: "Apple shake (no sugar)", unit: "glass", base: 1, cal: 180, p: 7, c: 28, f: 5 },
+  { n: "Papaya shake (no sugar)", unit: "glass", base: 1, cal: 160, p: 7, c: 24, f: 5 },
+  { n: "Mixed fruit shake (no sugar)", unit: "glass", base: 1, cal: 200, p: 7, c: 30, f: 5 },
+  { n: "Dates shake (no sugar)", unit: "glass", base: 1, cal: 230, p: 8, c: 36, f: 6 },
+  { n: "Dry fruit shake (no sugar)", unit: "glass", base: 1, cal: 280, p: 9, c: 30, f: 13 },
+  { n: "Avocado shake (no sugar)", unit: "glass", base: 1, cal: 250, p: 7, c: 20, f: 16 },
   { n: "Masala milk", unit: "glass", base: 1, cal: 200, p: 8, c: 26, f: 7 },
   { n: "Badam milk", unit: "glass", base: 1, cal: 220, p: 8, c: 28, f: 8 },
   // sandwiches (veg)
@@ -262,6 +273,7 @@ const FOODS = [
   { n: "Butter naan", unit: "naan", base: 1, cal: 280, p: 8, c: 45, f: 8 },
   { n: "Garlic naan", unit: "naan", base: 1, cal: 300, p: 9, c: 46, f: 9 },
   { n: "Kachori", unit: "piece", base: 1, cal: 180, p: 3, c: 18, f: 11 },
+  { n: "Dahi kachori (chaat)", unit: "plate", base: 1, cal: 280, p: 7, c: 34, f: 13 },
   { n: "Bread pakora", unit: "piece", base: 1, cal: 180, p: 4, c: 20, f: 9 },
   { n: "Onion / veg pakora", unit: "plate", base: 1, cal: 250, p: 5, c: 25, f: 14 },
   { n: "Veg cutlet", unit: "piece", base: 1, cal: 130, p: 3, c: 16, f: 6 },
@@ -377,6 +389,18 @@ const FOODS = [
   { n: "Iced tea", unit: "glass", base: 1, cal: 90, p: 0, c: 22, f: 0 },
   { n: "Coconut water", unit: "ml", base: 100, cal: 19, p: 0.7, c: 3.7, f: 0.2 },
   { n: "Orange juice", unit: "ml", base: 100, cal: 47, p: 0.7, c: 11, f: 0.2 },
+  // fresh fruit juices — no added sugar (per glass ≈ 250 ml)
+  { n: "Fresh orange juice (no sugar)", unit: "glass", base: 1, cal: 110, p: 2, c: 25, f: 0.5 },
+  { n: "Mosambi (sweet lime) juice (no sugar)", unit: "glass", base: 1, cal: 100, p: 1.5, c: 23, f: 0.3 },
+  { n: "Watermelon juice (no sugar)", unit: "glass", base: 1, cal: 90, p: 2, c: 21, f: 0.4 },
+  { n: "Pomegranate juice (no sugar)", unit: "glass", base: 1, cal: 135, p: 2, c: 33, f: 1 },
+  { n: "Pineapple juice (no sugar)", unit: "glass", base: 1, cal: 130, p: 1, c: 32, f: 0.3 },
+  { n: "Apple juice (no sugar)", unit: "glass", base: 1, cal: 115, p: 0.5, c: 28, f: 0.3 },
+  { n: "Grape juice (no sugar)", unit: "glass", base: 1, cal: 150, p: 1, c: 37, f: 0.4 },
+  { n: "Carrot juice (no sugar)", unit: "glass", base: 1, cal: 95, p: 2, c: 22, f: 0.5 },
+  { n: "Beetroot juice (no sugar)", unit: "glass", base: 1, cal: 110, p: 3, c: 25, f: 0.3 },
+  { n: "ABC juice (apple-beet-carrot, no sugar)", unit: "glass", base: 1, cal: 120, p: 2, c: 27, f: 0.5 },
+  { n: "Mixed fruit juice (no sugar)", unit: "glass", base: 1, cal: 120, p: 1.5, c: 28, f: 0.5 },
   { n: "Cola", unit: "ml", base: 100, cal: 42, p: 0, c: 11, f: 0 },
   { n: "Beer", unit: "ml", base: 100, cal: 43, p: 0.5, c: 3.6, f: 0 },
   { n: "Wine", unit: "ml", base: 100, cal: 83, p: 0.1, c: 2.7, f: 0 },
@@ -1024,10 +1048,13 @@ function setRow(set = {}, n = 1) {
       <span class="set-n">${n}</span>
       <input class="s-reps" type="number" inputmode="numeric" placeholder="reps" value="${set.reps ?? ""}">
       <span class="set-x">×</span>
-      <input class="s-kg" type="number" inputmode="decimal" placeholder="kg" value="${set.weight ?? ""}">
+      <input class="s-kg" type="number" inputmode="decimal" placeholder="kg" title="Total weight lifted — barbell: full bar load; dumbbells: one dumbbell" value="${set.weight ?? ""}">
       <button class="set-del" type="button" aria-label="Remove set">✕</button>
     </div>`);
   row.querySelector(".set-del").onclick = () => { const list = row.parentElement; row.remove(); renumberSets(list); recalcWorkoutBurn(); };
+  // editing reps or weight should refresh the calorie estimate too
+  row.querySelector(".s-reps").addEventListener("input", recalcWorkoutBurn);
+  row.querySelector(".s-kg").addEventListener("input", recalcWorkoutBurn);
   return row;
 }
 function exerciseBlock(ex = {}) {
@@ -1058,15 +1085,21 @@ let editingWorkoutId = null;
 let gymType = "Push";
 let workoutBurnTouched = false;
 
-// conservative estimate: ~5 kcal per set at 75 kg, scaled by body weight
+// conservative estimate: a base cost per set (scaled by body weight) plus a
+// bonus for the volume (reps × weight) actually lifted, so heavier sets count more
 function recalcWorkoutBurn() {
   if (workoutBurnTouched) return;
-  const kg = +DATA.goals.weight || latestWeight() || +DATA.goals.startWeight || 75;
-  const sets = $("#exercise-editor").querySelectorAll(".set-row").length;
-  const est = Math.round(sets * 5 * (kg / 75));
+  const bw = +DATA.goals.weight || latestWeight() || +DATA.goals.startWeight || 75;
+  let est = 0;
+  $("#exercise-editor").querySelectorAll(".set-row").forEach((r) => {
+    const reps = +r.querySelector(".s-reps").value || 0;
+    const weight = +r.querySelector(".s-kg").value || 0;
+    est += 5 * (bw / 75) + (reps * weight) / 200;
+  });
+  est = Math.round(est);
   $("#w-burned").value = est || "";
   $("#w-burn-hint").textContent = est
-    ? `≈ ${est} kcal (kept modest — edit if you like)`
+    ? `≈ ${est} kcal (factors in your reps × weight — edit if you like)`
     : "Add sets and a calorie estimate appears here.";
 }
 function setGymType(t) {
