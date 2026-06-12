@@ -314,6 +314,16 @@ body {
 .macro.over .macro-bar span { background: var(--danger) !important; }
 .macro.over b { color: var(--danger); }
 
+/* ---------- streak banner ---------- */
+.streak-banner {
+  display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(90deg, rgba(255,140,60,.16), rgba(255,140,60,.04));
+  border: 1px solid rgba(255,140,60,.35); border-radius: 14px;
+  padding: 11px 14px; margin-bottom: 14px; font-size: 14px;
+}
+.streak-banner b { font-weight: 800; }
+.streak-banner span { color: var(--muted); font-size: 13px; margin-left: auto; }
+
 /* ---------- recent-foods quick-add ---------- */
 .recent-chips { margin-bottom: 12px; }
 .chip-recent {

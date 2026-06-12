@@ -711,6 +711,16 @@ function renderDashboard() {
 
   renderWeek();
 
+  // motivational logging streak (only once it's worth showing)
+  const streak = loggingStreak();
+  const sb = $("#streak-banner");
+  if (sb) {
+    if (streak >= 2 && isToday(viewDate)) {
+      sb.classList.remove("hidden");
+      sb.innerHTML = `🔥 <b>${streak}-day streak</b><span>keep it going</span>`;
+    } else sb.classList.add("hidden");
+  }
+
   const d = dayData();
   // mini training list (workouts + cardio)
   renderTraining($("#dash-workout"), d, true);
@@ -955,6 +965,18 @@ function renderProgress() {
   };
 }
 
+// the calendar day before the one being viewed
+function prevDayKey() { const d = new Date(viewDate); d.setDate(d.getDate() - 1); return keyOf(d); }
+// duplicate the previous day's meals onto the current day
+function copyYesterdayMeals() {
+  const prev = DATA.days[prevDayKey()];
+  if (!prev || !(prev.meals || []).length) return;
+  const today = dayData();
+  prev.meals.forEach((m) => today.meals.push({ ...m, id: uid() }));
+  save(); renderAll(); haptic();
+  toast(`Copied ${prev.meals.length} item${prev.meals.length > 1 ? "s" : ""} from the day before`);
+}
+
 function renderNutrition() {
   const t = totals();
   const d = dayData();
@@ -962,7 +984,16 @@ function renderNutrition() {
   // count distinct meal sittings (Breakfast/Lunch/Dinner/Snack), not individual items
   $("#nut-count").textContent = new Set(d.meals.map((m) => m.type || "Other")).size;
   const wrap = $("#meal-list"); wrap.innerHTML = "";
-  if (!d.meals.length) wrap.appendChild(el(`<div class="empty">No food yet. Tap below to log a meal.</div>`));
+  if (!d.meals.length) {
+    wrap.appendChild(el(`<div class="empty">No food yet. Tap below to log a meal.</div>`));
+    const prev = DATA.days[prevDayKey()];
+    const n = prev ? (prev.meals || []).length : 0;
+    if (n) {
+      const b = el(`<button class="ghost-btn" id="copy-yday" type="button">⧉ Copy previous day's ${n} item${n > 1 ? "s" : ""}</button>`);
+      b.onclick = copyYesterdayMeals;
+      wrap.appendChild(b);
+    }
+  }
   d.meals.forEach((m) => wrap.appendChild(mealItem(m, false)));
 }
 
