@@ -543,7 +543,8 @@ function totals() {
   const burned = d.workouts.reduce((s, w) => s + (+w.burned || 0), 0)
                + d.cardio.reduce((s, c) => s + (+c.burned || 0), 0)
                + d.activity.reduce((s, a) => s + (+a.kcal || 0), 0);
-  const steps = d.activity.reduce((s, a) => s + (+a.steps || 0), 0);
+  const steps = d.activity.reduce((s, a) => s + (+a.steps || 0), 0)
+              + d.cardio.reduce((s, c) => s + (+c.steps || 0), 0);
   return { eaten, protein, carbs, fat, burned, steps };
 }
 
@@ -613,16 +614,17 @@ function weekLabel(ref = new Date()) {
 }
 function weekStats(ref = new Date()) {
   const { mon, sun } = weekRange(ref);
-  let cardioMin = 0, strength = 0, cardioKcal = 0, calSum = 0, calDays = 0;
+  let cardioMin = 0, strength = 0, cardioKcal = 0, calSum = 0, calDays = 0, steps = 0;
   Object.entries(DATA.days).forEach(([k, dd]) => {
     const dt = new Date(k + "T12:00:00");
     if (dt < mon || dt > sun) return;
-    (dd.cardio || []).forEach((c) => { cardioMin += +c.minutes || 0; cardioKcal += +c.burned || 0; });
+    (dd.cardio || []).forEach((c) => { cardioMin += +c.minutes || 0; cardioKcal += +c.burned || 0; steps += +c.steps || 0; });
+    (dd.activity || []).forEach((a) => { steps += +a.steps || 0; });
     strength += (dd.workouts || []).length;
     const eaten = (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0);
     if (eaten > 0) { calSum += eaten; calDays++; }
   });
-  return { cardioMin, strength, cardioKcal, avgCal: calDays ? Math.round(calSum / calDays) : 0 };
+  return { cardioMin, strength, cardioKcal, steps, avgCal: calDays ? Math.round(calSum / calDays) : 0 };
 }
 
 /* ---------- insights (trends, streaks, projection) ---------- */
@@ -713,6 +715,24 @@ function renderDashboard() {
   setMacro("#m-carbs", t.carbs, g.carbs);
   setMacro("#m-fat", t.fat, g.fat);
 
+  // daily steps progress (walks + everyday activity)
+  const stepsGoal = +g.stepsGoal || 0;
+  const sc = $("#steps-card");
+  if (sc) {
+    if (stepsGoal > 0 || t.steps > 0) {
+      sc.classList.remove("hidden");
+      const pct = stepsGoal > 0 ? Math.min((t.steps / stepsGoal) * 100, 100) : 0;
+      const goalTxt = stepsGoal > 0 ? ` / ${stepsGoal.toLocaleString()}` : "";
+      sc.innerHTML = `
+        <div class="steps-head">
+          <span class="steps-ico">👟</span>
+          <div class="grow"><b>${t.steps.toLocaleString()}</b><span class="muted">${goalTxt} steps</span></div>
+          ${stepsGoal > 0 ? `<span class="steps-pct${t.steps >= stepsGoal ? " hit" : ""}">${Math.round(pct)}%</span>` : ""}
+        </div>
+        ${stepsGoal > 0 ? `<div class="steps-bar"><span style="width:${pct}%"></span></div>` : ""}`;
+    } else sc.classList.add("hidden");
+  }
+
   renderWeek();
 
   // motivational logging streak (only once it's worth showing)
@@ -787,6 +807,15 @@ function cardioItem(c, mini) {
   return node;
 }
 
+const compactK = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(Math.round(n));
+function stepsTile(val, goal) {
+  const pct = goal > 0 ? Math.min((val / goal) * 100, 100) : 0;
+  return `<div class="wtile">
+    <div class="wt-num">${compactK(val)}${goal > 0 ? `<small>/${compactK(goal)}</small>` : ""}</div>
+    <div class="wt-bar steps"><span style="width:${pct}%"></span></div>
+    <div class="wt-lbl">Steps</div>
+  </div>`;
+}
 function weekTile(val, goal, lbl) {
   const pct = goal > 0 ? Math.min((val / goal) * 100, 100) : 0;
   return `<div class="wtile">
@@ -976,6 +1005,7 @@ function renderProgress() {
       <div class="week-tiles">
         ${weekTile(w.cardioMin, g.cardioGoal, "Cardio min")}
         ${weekTile(w.strength, g.strengthGoal, "Strength")}
+        ${stepsTile(w.steps, (+g.stepsGoal || 0) * 7)}
         <div class="wtile"><div class="wt-num">${w.avgCal || "—"}</div><div class="wt-bar"></div><div class="wt-lbl">avg kcal</div></div>
       </div>
     </div>

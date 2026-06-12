@@ -191,8 +191,9 @@ body {
 /* WEEK CARD / TILES */
 .week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
 .week-head b { font-size: 16px; }
-.week-tiles { display: flex; gap: 10px; }
-.wtile { flex: 1; text-align: center; }
+.week-tiles { display: flex; gap: 10px; flex-wrap: wrap; }
+.wtile { flex: 1 1 60px; text-align: center; }
+.wt-bar.steps span { background: var(--steps); }
 .wt-num { font-size: 20px; font-weight: 800; }
 .wt-num small { font-size: 12px; font-weight: 600; color: var(--muted); }
 .wt-bar { height: 6px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin: 8px 0 6px; }
@@ -314,6 +315,16 @@ body {
 .ring-num.over { color: var(--danger); }
 .macro.over .macro-bar span { background: var(--danger) !important; }
 .macro.over b { color: var(--danger); }
+
+/* ---------- steps card ---------- */
+.steps-head { display: flex; align-items: center; gap: 10px; }
+.steps-ico { font-size: 20px; }
+.steps-head .grow b { font-size: 20px; font-weight: 800; }
+.steps-head .grow .muted { font-size: 13px; margin-left: 2px; }
+.steps-pct { font-size: 14px; font-weight: 700; color: var(--steps); }
+.steps-pct.hit { color: var(--accent-2); }
+.steps-bar { height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
+.steps-bar span { display: block; height: 100%; background: var(--steps); border-radius: 4px; transition: width .5s ease; }
 
 /* ---------- streak banner ---------- */
 .streak-banner {
