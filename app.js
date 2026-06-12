@@ -625,6 +625,46 @@ function weekStats(ref = new Date()) {
   return { cardioMin, strength, cardioKcal, avgCal: calDays ? Math.round(calSum / calDays) : 0 };
 }
 
+/* ---------- insights (trends, streaks, projection) ---------- */
+// average daily calories over the last N days, counting only days with food logged
+function avgCalories(nDays) {
+  const today = new Date(); let sum = 0, cnt = 0;
+  for (let i = 0; i < nDays; i++) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    const dd = DATA.days[keyOf(d)]; if (!dd) continue;
+    const eaten = (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0);
+    if (eaten > 0) { sum += eaten; cnt++; }
+  }
+  return cnt ? Math.round(sum / cnt) : 0;
+}
+// consecutive days (ending today) with any meal/workout/cardio logged; today may still be empty
+function loggingStreak() {
+  let streak = 0; const today = new Date();
+  for (let i = 0; i < 730; i++) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    const dd = DATA.days[keyOf(d)];
+    const logged = dd && ((dd.meals || []).length || (dd.workouts || []).length || (dd.cardio || []).length);
+    if (logged) streak++;
+    else if (i === 0) continue;       // today not logged yet — don't break the streak
+    else break;
+  }
+  return streak;
+}
+// least-squares slope (kg/week) over the most recent weigh-ins, and projected goal date
+function weightProjection() {
+  const ws = [...DATA.weights].sort((a, b) => (a.date < b.date ? -1 : 1)).slice(-6);
+  if (ws.length < 2) return null;
+  const t0 = new Date(ws[0].date + "T12:00:00").getTime();
+  const xs = ws.map((w) => (new Date(w.date + "T12:00:00").getTime() - t0) / (86400000 * 7));
+  const ys = ws.map((w) => w.kg);
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
+  if (den === 0) return null;
+  return { slope: num / den }; // negative = losing
+}
+
 /* ============================================================
    RENDER
 ============================================================ */
@@ -644,7 +684,11 @@ function renderDashboard() {
   const t = totals();
   const g = DATA.goals;
   const remaining = g.calories - t.eaten; // food only — exercise is not added back
-  $("#cal-remaining").textContent = Math.round(remaining);
+  const over = remaining < 0;
+  const remEl = $("#cal-remaining");
+  remEl.textContent = Math.round(Math.abs(remaining));
+  remEl.classList.toggle("over", over);
+  if (remEl.nextElementSibling) remEl.nextElementSibling.textContent = over ? "kcal over" : "kcal left";
   $("#cal-goal").textContent = g.calories;
   $("#cal-eaten").textContent = Math.round(t.eaten);
   $("#cal-burned").textContent = Math.round(t.burned);
@@ -659,6 +703,7 @@ function renderDashboard() {
     $(id).textContent = `${Math.round(val)}g`;
     const bar = $(id).parentElement.querySelector(".macro-bar span");
     bar.style.width = Math.min(goal > 0 ? (val / goal) * 100 : 0, 100) + "%";
+    $(id).parentElement.classList.toggle("over", goal > 0 && val > goal);
   };
   setMacro("#m-protein", t.protein, g.protein);
   setMacro("#m-carbs", t.carbs, g.carbs);
@@ -672,7 +717,13 @@ function renderDashboard() {
 
   // mini meals
   const mWrap = $("#dash-meals"); mWrap.innerHTML = "";
-  if (!d.meals.length) mWrap.appendChild(el(`<div class="empty">No food logged</div>`));
+  if (!d.meals.length && isToday(viewDate)) {
+    const empty = el(`<div class="empty tappable">No food yet — tap to log ${guessMealType().toLowerCase()}</div>`);
+    empty.onclick = () => $("#add-meal-btn").click();
+    mWrap.appendChild(empty);
+  } else if (!d.meals.length) {
+    mWrap.appendChild(el(`<div class="empty">No food logged</div>`));
+  }
   d.meals.forEach((m) => mWrap.appendChild(mealItem(m, true)));
 }
 
@@ -816,6 +867,46 @@ function weightChartSVG() {
 
 let progressWeek = new Date();
 
+// "Insights" card: calorie adherence, streak, and projection from actual weight trend
+function insightsCardHTML(cur) {
+  const g = DATA.goals;
+  const avg7 = avgCalories(7), avg30 = avgCalories(30);
+  const goal = +g.calories || 0;
+  const diff7 = avg7 && goal ? avg7 - goal : 0;
+  const adh = avg7 && goal
+    ? `<span class="${diff7 <= 0 ? "good" : "bad"}">${diff7 <= 0 ? "−" : "+"}${Math.abs(diff7)} vs goal</span>`
+    : `<span class="muted">log meals to see this</span>`;
+  const streak = loggingStreak();
+
+  const proj = weightProjection();
+  const target = +g.targetWeight || 0;
+  let projText, projClass = "muted";
+  if (!proj || !target || !cur) {
+    projText = "Log your weight a few times to project a date.";
+  } else if (cur <= target) {
+    projText = "🎉 You're at or below target.";
+  } else if (proj.slope < -0.01) {
+    const weeks = (cur - target) / -proj.slope;
+    const eta = new Date(); eta.setDate(eta.getDate() + Math.round(weeks * 7));
+    projText = `At your real pace (${Math.abs(proj.slope).toFixed(2)} kg/wk) you'll hit ${target} kg around ${eta.toLocaleDateString(undefined, { month: "short", year: "numeric" })}.`;
+    projClass = "good";
+  } else {
+    projText = "No downward trend in recent weigh-ins — pace is flat or rising.";
+    projClass = "bad";
+  }
+
+  return `
+    <div class="card">
+      <div class="week-head"><b>Insights</b><span class="muted">last 7 days</span></div>
+      <div class="insight-grid">
+        <div class="ins"><div class="ins-num">${avg7 || "—"}</div><div class="ins-lbl">avg kcal / day</div><div class="ins-sub">${adh}</div></div>
+        <div class="ins"><div class="ins-num">${avg30 || "—"}</div><div class="ins-lbl">30-day avg</div><div class="ins-sub muted">vs ${goal || "—"} goal</div></div>
+        <div class="ins"><div class="ins-num">${streak}🔥</div><div class="ins-lbl">day streak</div><div class="ins-sub muted">logged in a row</div></div>
+      </div>
+      <div class="proj ${projClass}">${projText}</div>
+    </div>`;
+}
+
 function renderProgress() {
   const p = planInfo(); const ms = milestones(); const w = weekStats(progressWeek); const g = DATA.goals;
   const cur = latestWeight() ?? (+g.weight || p.start);
@@ -832,6 +923,7 @@ function renderProgress() {
         : `~${p.weeks} weeks left · target ${p.eta.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}</div>
       <div class="chart-wrap">${weightChartSVG()}</div>
     </div>
+    ${insightsCardHTML(cur)}
     <div class="card">
       <div class="month-nav">
         <button id="pw-prev" class="icon-btn" aria-label="Previous week">‹</button>
@@ -1054,22 +1146,18 @@ function escapeHtml(s) {
 /* ============================================================
    MUTATIONS
 ============================================================ */
-function removeWorkout(id) {
-  if (!confirm("Delete this workout?")) return;
-  const d = dayData(); d.workouts = d.workouts.filter((w) => w.id !== id); save(); renderAll();
+// delete immediately, then offer an Undo toast (less friction than a confirm dialog)
+function removeWithUndo(list, id, label) {
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) return;
+  const [item] = list.splice(i, 1);
+  save(); renderAll(); haptic();
+  toast(`${label} deleted`, { actionLabel: "Undo", onAction: () => { list.splice(i, 0, item); save(); renderAll(); } });
 }
-function removeMeal(id) {
-  if (!confirm("Delete this food entry?")) return;
-  const d = dayData(); d.meals = d.meals.filter((m) => m.id !== id); save(); renderAll();
-}
-function removeCardio(id) {
-  if (!confirm("Delete this exercise entry?")) return;
-  const d = dayData(); d.cardio = d.cardio.filter((c) => c.id !== id); save(); renderAll();
-}
-function removeActivity(id) {
-  if (!confirm("Delete this activity?")) return;
-  const d = dayData(); d.activity = d.activity.filter((a) => a.id !== id); save(); renderAll();
-}
+function removeWorkout(id)  { removeWithUndo(dayData().workouts, id, "Workout"); }
+function removeMeal(id)     { removeWithUndo(dayData().meals, id, "Food"); }
+function removeCardio(id)   { removeWithUndo(dayData().cardio, id, "Exercise"); }
+function removeActivity(id) { removeWithUndo(dayData().activity, id, "Activity"); }
 
 /* ============================================================
    NAVIGATION
@@ -1092,7 +1180,7 @@ function showScreen(name) {
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {
-  tab.onclick = () => showScreen(tab.dataset.screen);
+  tab.onclick = () => { haptic(8); showScreen(tab.dataset.screen); };
 });
 
 $("#date-prev").onclick = () => { viewDate.setDate(viewDate.getDate() - 1); renderAll(); };
@@ -1247,8 +1335,10 @@ $("#save-workout").onclick = () => {
   } else {
     workouts.push({ id: uid(), ...fields });
   }
+  const wasEdit = !!editingWorkoutId;
   editingWorkoutId = null;
-  save(); renderAll(); closeModal("#workout-modal");
+  save(); renderAll(); haptic(); closeModal("#workout-modal");
+  toast(wasEdit ? "Workout updated" : "Workout logged");
 };
 
 /* ---------- meal modal ---------- */
@@ -1278,6 +1368,7 @@ $("#add-meal-btn").onclick = () => {
   $("#f-qty-wrap").classList.add("hidden");  $("#meal-modal-title").textContent = "Log Food";
   mealType = guessMealType();
   $("#meal-type-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.type === mealType));
+  renderRecentFoods();
   openModal("#meal-modal");
   setTimeout(() => $("#f-search").focus(), 100);
 };
@@ -1295,7 +1386,54 @@ function openMealEdit(m) {
   mealType = m.type || "Snack";
   $("#meal-type-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.type === mealType));
   $("#meal-modal-title").textContent = "Edit Food";
+  $("#f-recent").classList.add("hidden");
+  $("#f-recent-label").classList.add("hidden");
   openModal("#meal-modal");
+}
+
+/* ---------- recent foods quick-add ---------- */
+// most-recent distinct foods across all logged days, newest first
+function recentFoods(limit = 8) {
+  const seen = new Map();
+  const keys = Object.keys(DATA.days).sort().reverse();
+  for (const k of keys) {
+    const meals = DATA.days[k].meals || [];
+    for (let i = meals.length - 1; i >= 0; i--) {
+      const m = meals[i];
+      const name = (m.name || "").trim();
+      if (!name || seen.has(name)) continue;
+      seen.set(name, m);
+      if (seen.size >= limit) return [...seen.values()];
+    }
+  }
+  return [...seen.values()];
+}
+
+function fillFromRecent(m) {
+  selectedFood = null;
+  $("#f-qty-wrap").classList.add("hidden");
+  $("#f-name").value = m.name || "";
+  $("#f-cal").value = Math.round(m.calories || 0);
+  $("#f-protein").value = m.protein || 0;
+  $("#f-carbs").value = m.carbs || 0;
+  $("#f-fat").value = m.fat || 0;
+  $("#f-search").value = ""; $("#f-results").innerHTML = "";
+  haptic();
+}
+
+function renderRecentFoods() {
+  const wrap = $("#f-recent"); const label = $("#f-recent-label");
+  if (!wrap) return;
+  const items = recentFoods();
+  wrap.innerHTML = "";
+  const show = items.length > 0;
+  wrap.classList.toggle("hidden", !show);
+  if (label) label.classList.toggle("hidden", !show);
+  items.forEach((m) => {
+    const b = el(`<button type="button" class="chip-recent">${escapeHtml(m.name)} <small>${Math.round(m.calories || 0)}</small></button>`);
+    b.onclick = () => fillFromRecent(m);
+    wrap.appendChild(b);
+  });
 }
 
 /* ---------- food search + auto-calc ---------- */
@@ -1305,9 +1443,9 @@ function foodQtyLabel(f) {
   return f.unit === "g" ? "g" : f.unit === "ml" ? "ml" : f.unit;
 }
 
-function renderFoodResults(list, { online = false } = {}) {
+function renderFoodResults(list, { online = false, append = false } = {}) {
   const wrap = $("#f-results");
-  wrap.innerHTML = "";
+  if (!append) wrap.innerHTML = "";
   if (!list.length) return;
   list.forEach((f) => {
     const per = f.unit === "g" || f.unit === "ml" ? `per 100${f.unit}` : `per ${f.unit}`;
@@ -1326,6 +1464,47 @@ function searchFoods(q) {
   if (!query) { $("#f-results").innerHTML = ""; return; }
   const matches = FOODS.filter((f) => f.n.toLowerCase().includes(query)).slice(0, 14);
   renderFoodResults(matches);
+  if (query.length >= 3) searchOnlineFoods(q.trim());
+}
+
+/* ---------- online food lookup (Open Food Facts, free, no key) ---------- */
+let offController = null;
+// map an Open Food Facts product to our food shape (per 100 g/ml)
+function offToFood(p) {
+  const nut = p.nutriments || {};
+  let cal = nut["energy-kcal_100g"];
+  if (cal == null && nut["energy_100g"] != null) cal = nut["energy_100g"] / 4.184; // kJ → kcal
+  if (cal == null) return null;
+  const name = (p.product_name || p.product_name_en || "").trim();
+  if (!name) return null;
+  return {
+    n: name.length > 42 ? name.slice(0, 41) + "…" : name,
+    unit: "g", base: 100, cal: Math.round(cal),
+    p: +(+nut.proteins_100g || 0).toFixed(1),
+    c: +(+nut.carbohydrates_100g || 0).toFixed(1),
+    f: +(+nut.fat_100g || 0).toFixed(1),
+  };
+}
+async function searchOnlineFoods(query) {
+  if (!navigator.onLine) return;
+  try {
+    offController?.abort();
+    offController = new AbortController();
+    const url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" +
+      encodeURIComponent(query) +
+      "&search_simple=1&action=process&json=1&page_size=8" +
+      "&fields=product_name,product_name_en,nutriments";
+    const res = await fetch(url, { signal: offController.signal });
+    const data = await res.json();
+    // ignore stale responses if the user has since changed the query
+    if ($("#f-search").value.trim().toLowerCase() !== query.toLowerCase()) return;
+    const seen = new Set();
+    const mapped = (data.products || []).map(offToFood).filter((f) => {
+      if (!f || seen.has(f.n.toLowerCase())) return false;
+      seen.add(f.n.toLowerCase()); return true;
+    }).slice(0, 8);
+    if (mapped.length) renderFoodResults(mapped, { online: true, append: true });
+  } catch { /* offline or aborted — local results already shown */ }
 }
 
 function selectFood(f) {
@@ -1397,8 +1576,10 @@ $("#save-meal").onclick = () => {
   } else {
     meals.push({ id: uid(), ...fields });
   }
+  const wasEdit = !!editingMealId;
   editingMealId = null;
-  save(); renderAll(); closeModal("#meal-modal");
+  save(); renderAll(); haptic(); closeModal("#meal-modal");
+  toast(wasEdit ? "Food updated" : "Food logged");
 };
 
 // save current item and keep the sheet open to add the next one
@@ -1476,8 +1657,10 @@ $("#save-cardio").onclick = () => {
   } else {
     cardio.push({ id: uid(), ...fields });
   }
+  const wasEdit = !!editingCardioId;
   editingCardioId = null;
-  save(); renderAll(); closeModal("#cardio-modal");
+  save(); renderAll(); haptic(); closeModal("#cardio-modal");
+  toast(wasEdit ? "Cardio updated" : "Cardio logged");
 };
 
 /* ---------- expense modal ---------- */
@@ -1835,7 +2018,8 @@ $("#save-weight").onclick = () => {
   DATA.weights = DATA.weights.filter((w) => w.date !== date);
   DATA.weights.push({ date, kg });
   DATA.goals.weight = latestWeight();
-  save(); renderAll(); closeModal("#weight-modal");
+  save(); renderAll(); haptic(); closeModal("#weight-modal");
+  toast("Weight saved");
 };
 
 /* ============================================================
@@ -1876,6 +2060,25 @@ $("#save-profile-btn").onclick = () => {
 function flash(btn, msg) {
   const old = btn.textContent; btn.textContent = msg;
   setTimeout(() => (btn.textContent = old), 1200);
+}
+
+/* light haptic feedback (no-op where unsupported) */
+function haptic(ms = 10) { try { navigator.vibrate && navigator.vibrate(ms); } catch {} }
+
+/* transient toast, optionally with an action button (e.g. Undo) */
+let toastTimer;
+function toast(msg, { actionLabel, onAction, ms = 4000 } = {}) {
+  const host = $("#toast-host"); if (!host) return;
+  host.innerHTML = "";
+  const node = el(`<div class="toast"><span>${escapeHtml(msg)}</span></div>`);
+  if (actionLabel) {
+    const b = el(`<button class="toast-action" type="button">${escapeHtml(actionLabel)}</button>`);
+    b.onclick = () => { clearTimeout(toastTimer); host.innerHTML = ""; haptic(); onAction && onAction(); };
+    node.appendChild(b);
+  }
+  host.appendChild(node);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { node.classList.add("out"); setTimeout(() => (host.innerHTML = ""), 200); }, ms);
 }
 
 /* export / import / reset */

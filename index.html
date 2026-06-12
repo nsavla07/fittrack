@@ -226,6 +226,8 @@
           <button data-type="Dinner">Dinner</button>
           <button data-type="Snack">Snack</button>
         </div>
+        <span class="seg-label" id="f-recent-label">Recent</span>
+        <div id="f-recent" class="chips recent-chips"></div>
         <label class="field"><span>Search food (auto-fills calories)</span><input type="text" id="f-search" placeholder="e.g. chicken, banana, rice" autocomplete="off" /></label>
         <div id="f-results" class="food-results"></div>
         <div id="f-qty-wrap" class="qty-row hidden">
@@ -360,6 +362,9 @@
       </div>
     </div>
   </div>
+
+  <!-- transient toasts (undo, confirmations) -->
+  <div id="toast-host" class="toast-host"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
