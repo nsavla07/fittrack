@@ -675,9 +675,13 @@ function renderDate() {
   const lbl = isToday(viewDate)
     ? "Today"
     : viewDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  $("#date-label").textContent = lbl;
+  const dl = $("#date-label");
+  dl.textContent = lbl;
+  const past = !isToday(viewDate);
+  dl.classList.toggle("jumpable", past); // hint that tapping returns to today
+  dl.title = past ? "Back to today" : "";
   // don't allow future days
-  $("#date-next").style.visibility = isToday(viewDate) ? "hidden" : "visible";
+  $("#date-next").style.visibility = past ? "visible" : "hidden";
 }
 
 function renderDashboard() {
@@ -852,8 +856,37 @@ function mealItem(m, mini) {
   return node;
 }
 
+// most recent workout from any earlier day (for the repeat shortcut)
+function lastWorkout() {
+  const keys = Object.keys(DATA.days).sort().reverse();
+  for (const k of keys) {
+    if (k === keyOf(viewDate)) continue;
+    const ws = DATA.days[k].workouts || [];
+    if (ws.length) return ws[ws.length - 1];
+  }
+  return null;
+}
+function repeatLastWorkout() {
+  const w = lastWorkout();
+  if (!w) return;
+  const copy = { ...w, id: uid(), exercises: (w.exercises || []).map((e) => ({ ...e, sets: (e.sets || []).map((s) => ({ ...s })) })) };
+  dayData().workouts.push(copy);
+  save(); renderAll(); haptic();
+  toast(`Repeated "${w.name}" workout`);
+}
+
 function renderWorkouts() {
-  renderTraining($("#workout-list"), dayData(), false);
+  const d = dayData();
+  renderTraining($("#workout-list"), d, false);
+  // when no strength workout is logged yet, offer to repeat the last one
+  if (!d.workouts.length) {
+    const w = lastWorkout();
+    if (w) {
+      const b = el(`<button class="ghost-btn" type="button">↻ Repeat last: ${escapeHtml(w.name)}</button>`);
+      b.onclick = repeatLastWorkout;
+      $("#workout-list").appendChild(b);
+    }
+  }
 }
 
 function weightChartSVG() {
@@ -1218,6 +1251,11 @@ $("#date-prev").onclick = () => { viewDate.setDate(viewDate.getDate() - 1); rend
 $("#date-next").onclick = () => {
   if (isToday(viewDate)) return;
   viewDate.setDate(viewDate.getDate() + 1); renderAll();
+};
+// tap the date to jump straight back to today
+$("#date-label").onclick = () => {
+  if (isToday(viewDate)) return;
+  viewDate = new Date(); renderAll(); haptic();
 };
 
 /* ============================================================
