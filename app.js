@@ -147,6 +147,8 @@ const FOODS = [
   { n: "Sukha bhel", unit: "plate", base: 1, cal: 180, p: 4, c: 28, f: 6 },
   { n: "Pani puri / golgappa", unit: "plate (6)", base: 1, cal: 150, p: 3, c: 28, f: 3 },
   { n: "Dahi puri", unit: "plate", base: 1, cal: 230, p: 6, c: 30, f: 9 },
+  { n: "Chana chaat (chole chaat)", unit: "bowl", base: 1, cal: 230, p: 10, c: 32, f: 7 },
+  { n: "Chana chor garam", unit: "cup (50g)", base: 1, cal: 190, p: 8, c: 28, f: 5 },
   { n: "Aloo tikki", unit: "piece", base: 1, cal: 150, p: 3, c: 20, f: 7 },
   { n: "Vada pav", unit: "piece", base: 1, cal: 290, p: 7, c: 40, f: 11 },
   { n: "Batata vada (no pav)", unit: "piece", base: 1, cal: 150, p: 3, c: 18, f: 8 },
@@ -171,6 +173,17 @@ const FOODS = [
   { n: "Cheese frankie", unit: "roll", base: 1, cal: 380, p: 12, c: 42, f: 18 },
   { n: "Aloo frankie", unit: "roll", base: 1, cal: 320, p: 6, c: 46, f: 12 },
   { n: "Grain / Buddha bowl", unit: "bowl", base: 1, cal: 450, p: 18, c: 55, f: 16 },
+  // sushi (veg) — roll = 6 pieces unless noted
+  { n: "Cucumber roll (kappa maki, 6 pcs)", unit: "roll", base: 1, cal: 140, p: 4, c: 30, f: 0.5 },
+  { n: "Avocado roll (6 pcs)", unit: "roll", base: 1, cal: 210, p: 4, c: 30, f: 7 },
+  { n: "Avocado-cucumber roll (6 pcs)", unit: "roll", base: 1, cal: 200, p: 4, c: 32, f: 6 },
+  { n: "Veg maki roll (6 pcs)", unit: "roll", base: 1, cal: 200, p: 5, c: 35, f: 4 },
+  { n: "Veg California roll (8 pcs)", unit: "roll", base: 1, cal: 255, p: 5, c: 40, f: 7 },
+  { n: "Sweet potato tempura roll (8 pcs)", unit: "roll", base: 1, cal: 340, p: 6, c: 60, f: 8 },
+  { n: "Paneer / tofu roll (6 pcs)", unit: "roll", base: 1, cal: 240, p: 9, c: 32, f: 8 },
+  { n: "Inari sushi (sweet tofu pocket)", unit: "piece", base: 1, cal: 70, p: 2, c: 12, f: 1.5 },
+  { n: "Avocado nigiri", unit: "piece", base: 1, cal: 50, p: 1, c: 8, f: 1.5 },
+  { n: "Edamame (side)", unit: "bowl", base: 1, cal: 150, p: 13, c: 12, f: 6 },
   // Indian hot meals & sabzis (veg)
   { n: "Misal pav", unit: "plate", base: 1, cal: 400, p: 12, c: 55, f: 14 },
   { n: "Misal (bowl)", unit: "bowl", base: 1, cal: 250, p: 10, c: 30, f: 10 },
@@ -192,6 +205,7 @@ const FOODS = [
   { n: "Lemon rice", unit: "bowl", base: 1, cal: 250, p: 5, c: 42, f: 7 },
   { n: "Gobi / paneer paratha", unit: "paratha", base: 1, cal: 250, p: 8, c: 32, f: 10 },
   { n: "Plain paratha", unit: "paratha", base: 1, cal: 150, p: 3, c: 20, f: 6 },
+  { n: "Cheese paratha", unit: "paratha", base: 1, cal: 320, p: 11, c: 34, f: 16 },
   { n: "Veg manchurian", unit: "plate", base: 1, cal: 300, p: 7, c: 35, f: 15 },
   { n: "Veg hakka noodles", unit: "plate", base: 1, cal: 350, p: 8, c: 55, f: 11 },
   { n: "Curd / dahi", unit: "bowl", base: 1, cal: 100, p: 6, c: 8, f: 5 },
@@ -303,6 +317,17 @@ const FOODS = [
   { n: "Kulfi", unit: "piece", base: 1, cal: 200, p: 5, c: 22, f: 10 },
   { n: "Gajar halwa with rabdi", unit: "bowl", base: 1, cal: 480, p: 8, c: 52, f: 26 },
   { n: "Halwa", unit: "bowl", base: 1, cal: 300, p: 4, c: 40, f: 14 },
+  // cakes & pastries (veg / eggless) — per slice unless noted
+  { n: "Chocolate cake (slice)", unit: "slice", base: 1, cal: 350, p: 5, c: 50, f: 16 },
+  { n: "Black forest cake (slice)", unit: "slice", base: 1, cal: 340, p: 5, c: 42, f: 17 },
+  { n: "Vanilla sponge cake (slice)", unit: "slice", base: 1, cal: 300, p: 4, c: 45, f: 12 },
+  { n: "Red velvet cake (slice)", unit: "slice", base: 1, cal: 370, p: 4, c: 48, f: 18 },
+  { n: "Pineapple cake (slice)", unit: "slice", base: 1, cal: 290, p: 4, c: 44, f: 11 },
+  { n: "Butterscotch cake (slice)", unit: "slice", base: 1, cal: 330, p: 4, c: 46, f: 15 },
+  { n: "Chocolate truffle pastry", unit: "piece", base: 1, cal: 330, p: 4, c: 38, f: 18 },
+  { n: "Cheesecake (slice)", unit: "slice", base: 1, cal: 400, p: 7, c: 38, f: 25 },
+  { n: "Plum cake (slice)", unit: "slice", base: 1, cal: 320, p: 4, c: 50, f: 11 },
+  { n: "Cupcake (frosted)", unit: "cupcake", base: 1, cal: 290, p: 3, c: 40, f: 13 },
   // fruit
   { n: "Banana", unit: "medium banana", base: 1, cal: 105, p: 1.3, c: 27, f: 0.4 },
   { n: "Apple", unit: "medium apple", base: 1, cal: 95, p: 0.5, c: 25, f: 0.3 },
@@ -394,6 +419,8 @@ const FOODS = [
   { n: "Sbarro Fresh Tomato & Basil (slice)", unit: "slice", base: 1, cal: 470, p: 18, c: 58, f: 18 },
   { n: "Sbarro Spinach & Broccoli (slice)", unit: "slice", base: 1, cal: 500, p: 21, c: 52, f: 23 },
   { n: "Sbarro Veggie Supremo (slice)", unit: "slice", base: 1, cal: 490, p: 19, c: 57, f: 20 },
+  { n: "Sbarro Paneer Pizza (slice, NY XL)", unit: "slice", base: 1, cal: 510, p: 23, c: 55, f: 22 },
+  { n: "Sbarro Paneer Pizza (large, whole)", unit: "pizza", base: 1, cal: 4080, p: 184, c: 440, f: 176 },
   { n: "Sbarro Stromboli (veg)", unit: "piece", base: 1, cal: 620, p: 26, c: 60, f: 30 },
   { n: "Sbarro Baked Ziti", unit: "plate", base: 1, cal: 640, p: 26, c: 66, f: 28 },
   { n: "Sbarro Penne Alla Vodka", unit: "plate", base: 1, cal: 560, p: 18, c: 72, f: 22 },
@@ -451,6 +478,7 @@ const FOODS = [
   { n: "Margherita panini", unit: "panini", base: 1, cal: 380, p: 15, c: 42, f: 16 },
   { n: "Bruschetta", unit: "plate (4)", base: 1, cal: 260, p: 7, c: 36, f: 10 },
   { n: "Garlic bread with cheese", unit: "plate (2)", base: 1, cal: 330, p: 9, c: 38, f: 15 },
+  { n: "Melted cheese garlic bread", unit: "plate (2)", base: 1, cal: 440, p: 14, c: 40, f: 24 },
   { n: "Minestrone soup", unit: "bowl", base: 1, cal: 150, p: 6, c: 24, f: 3 },
   { n: "Caprese salad", unit: "plate", base: 1, cal: 280, p: 14, c: 8, f: 22 },
   { n: "Margherita calzone (veg)", unit: "piece", base: 1, cal: 580, p: 24, c: 62, f: 26 },
@@ -459,6 +487,9 @@ const FOODS = [
   { n: "Panna cotta", unit: "piece", base: 1, cal: 290, p: 5, c: 28, f: 18 },
   { n: "Gelato", unit: "scoop", base: 1, cal: 160, p: 3, c: 22, f: 7 },
   { n: "French fries", unit: "g", base: 100, cal: 312, p: 3.4, c: 41, f: 15 },
+  { n: "Cheese fries", unit: "serving", base: 1, cal: 480, p: 12, c: 48, f: 26 },
+  { n: "Peri peri fries", unit: "serving", base: 1, cal: 400, p: 5, c: 50, f: 19 },
+  { n: "Peri peri cheese fries", unit: "serving", base: 1, cal: 510, p: 13, c: 49, f: 28 },
   { n: "Chocolate", unit: "g", base: 100, cal: 535, p: 7.6, c: 59, f: 30 },
   { n: "Ice cream", unit: "g", base: 100, cal: 207, p: 3.5, c: 24, f: 11 },
   { n: "Latte", unit: "cup (240ml)", base: 1, cal: 120, p: 8, c: 12, f: 4.5 },
@@ -491,6 +522,8 @@ const FOODS = [
   { n: "ABC juice (apple-beet-carrot, no sugar)", unit: "glass", base: 1, cal: 120, p: 2, c: 27, f: 0.5 },
   { n: "Mixed fruit juice (no sugar)", unit: "glass", base: 1, cal: 120, p: 1.5, c: 28, f: 0.5 },
   { n: "Cola", unit: "ml", base: 100, cal: 42, p: 0, c: 11, f: 0 },
+  { n: "Diet Coke (can, 330 ml)", unit: "can", base: 1, cal: 1, p: 0, c: 0, f: 0 },
+  { n: "Pepsi Zero Sugar (can, 330 ml)", unit: "can", base: 1, cal: 0, p: 0, c: 0, f: 0 },
   { n: "Beer", unit: "ml", base: 100, cal: 43, p: 0.5, c: 3.6, f: 0 },
   { n: "Wine", unit: "ml", base: 100, cal: 83, p: 0.1, c: 2.7, f: 0 },
   { n: "Honey", unit: "tbsp", base: 1, cal: 64, p: 0, c: 17, f: 0 },
@@ -626,6 +659,33 @@ function weekStats(ref = new Date()) {
   });
   return { cardioMin, strength, cardioKcal, steps, avgCal: calDays ? Math.round(calSum / calDays) : 0 };
 }
+
+/* ---------- strength analytics (volume + personal bests) ---------- */
+const setVolume = (st) => (+st.reps || 0) * (+st.weight || 0);
+const exVolume = (e) => (e.sets || []).reduce((s, st) => s + setVolume(st), 0);
+// total reps×weight lifted across the given week
+function weekVolume(ref = new Date()) {
+  const { mon, sun } = weekRange(ref); let vol = 0;
+  Object.entries(DATA.days).forEach(([k, dd]) => {
+    const dt = new Date(k + "T12:00:00"); if (dt < mon || dt > sun) return;
+    (dd.workouts || []).forEach((w) => (w.exercises || []).forEach((e) => { vol += exVolume(e); }));
+  });
+  return vol;
+}
+// heaviest set per exercise across all history, sorted by weight desc
+function personalBests() {
+  const best = {};
+  Object.values(DATA.days).forEach((dd) => (dd.workouts || []).forEach((w) => (w.exercises || []).forEach((e) => {
+    const name = (e.name || "").trim(); if (!name) return;
+    (e.sets || []).forEach((st) => {
+      const wt = +st.weight || 0; if (wt <= 0) return;
+      if (!best[name] || wt > best[name].weight) best[name] = { weight: wt, reps: +st.reps || 0 };
+    });
+  })));
+  return Object.entries(best).map(([name, b]) => ({ name, ...b })).sort((a, b) => b.weight - a.weight);
+}
+// name -> best weight, recomputed each render for the 🏆 badge
+let pbMap = {};
 
 /* ---------- insights (trends, streaks, projection) ---------- */
 // average daily calories over the last N days, counting only days with food logged
@@ -844,10 +904,15 @@ function workoutItem(w, mini) {
   const sub = exCount
     ? w.exercises.map((e) => `${e.name}${exSetCount(e) ? ` ${exSetCount(e)}×` : ""}`).filter(Boolean).join(", ")
     : "No exercises";
+  // 🏆 when this workout holds the all-time best for one of its exercises
+  const isPB = (w.exercises || []).some((e) => {
+    const mx = pbMap[(e.name || "").trim()];
+    return mx > 0 && (e.sets || []).some((st) => (+st.weight || 0) >= mx);
+  });
   const node = el(`
     <div class="item">
       <div class="grow">
-        <div class="title">${escapeHtml(w.name || "Workout")}</div>
+        <div class="title">${escapeHtml(w.name || "Workout")}${isPB ? ` <span class="pb-badge">🏆 PB</span>` : ""}</div>
         <div class="sub">${escapeHtml(sub)}</div>
       </div>
       ${w.burned ? `<span class="kcal">−${w.burned}</span>` : ""}
@@ -979,6 +1044,22 @@ function insightsCardHTML(cur) {
     </div>`;
 }
 
+// "Strength" card: this week's lifted volume + all-time personal bests
+function strengthCardHTML() {
+  const vol = weekVolume(progressWeek);
+  const pbs = personalBests().slice(0, 5);
+  const atCur = weekRange(progressWeek).mon.getTime() === weekRange(new Date()).mon.getTime();
+  return `
+    <div class="card">
+      <div class="week-head"><b>Strength</b><span class="muted">${compactK(vol)} kg ${atCur ? "this week" : "that week"}</span></div>
+      ${pbs.length ? `<div class="pb-list">${pbs.map((p) => `
+        <div class="pb-row">
+          <span class="pb-name">${escapeHtml(p.name)}</span>
+          <span class="pb-val">${p.weight} kg${p.reps ? ` × ${p.reps}` : ""}</span>
+        </div>`).join("")}</div>` : `<div class="empty">Log gym sets with weights to track volume &amp; personal bests.</div>`}
+    </div>`;
+}
+
 function renderProgress() {
   const p = planInfo(); const ms = milestones(); const w = weekStats(progressWeek); const g = DATA.goals;
   const cur = latestWeight() ?? (+g.weight || p.start);
@@ -1009,6 +1090,7 @@ function renderProgress() {
         <div class="wtile"><div class="wt-num">${w.avgCal || "—"}</div><div class="wt-bar"></div><div class="wt-lbl">avg kcal</div></div>
       </div>
     </div>
+    ${strengthCardHTML()}
     <div class="card">
       <div class="week-head"><b>Milestones</b><span class="muted">${g.weeklyRate || 0.5} kg/week</span></div>
       <div class="ms-list">${ms.length ? ms.map((m) => `
@@ -1223,6 +1305,7 @@ function updatePlanReadout() {
 }
 
 function renderAll() {
+  pbMap = {}; personalBests().forEach((p) => (pbMap[p.name] = p.weight));
   renderDate();
   renderDashboard();
   renderWorkouts();

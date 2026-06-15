@@ -326,6 +326,14 @@ body {
 .steps-bar { height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
 .steps-bar span { display: block; height: 100%; background: var(--steps); border-radius: 4px; transition: width .5s ease; }
 
+/* ---------- strength: PB badge + bests list ---------- */
+.pb-badge { font-size: 11px; font-weight: 700; color: var(--carbs); margin-left: 4px; vertical-align: middle; }
+.pb-list { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.pb-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+.pb-row:last-child { border-bottom: none; }
+.pb-name { font-size: 14px; }
+.pb-val { font-size: 14px; font-weight: 700; color: var(--accent-2); }
+
 /* ---------- streak banner ---------- */
 .streak-banner {
   display: flex; align-items: center; gap: 8px;
