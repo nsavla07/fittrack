@@ -2426,9 +2426,20 @@ showScreen("dashboard");
 bindSyncUI();
 bootSession();
 
-/* register service worker for offline */
+/* register service worker for offline + auto-update installed PWAs */
 if ("serviceWorker" in navigator) {
+  // when a new worker takes control, reload once so the latest build shows
+  let swRefreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (swRefreshing) return;
+    swRefreshing = true;
+    window.location.reload();
+  });
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      reg.update(); // check for a new version on every launch
+      // and re-check whenever the app is brought back to the foreground
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update(); });
+    }).catch(() => {});
   });
 }
