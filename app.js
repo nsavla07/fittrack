@@ -168,6 +168,7 @@ const FOODS = [
   { n: "Dahi puri", unit: "plate", base: 1, cal: 230, p: 6, c: 30, f: 9 },
   { n: "Chana chaat (chole chaat)", unit: "bowl", base: 1, cal: 230, p: 10, c: 32, f: 7 },
   { n: "Chana chor garam", unit: "cup (50g)", base: 1, cal: 190, p: 8, c: 28, f: 5 },
+  { n: "Ragda pattice", unit: "plate", base: 1, cal: 350, p: 9, c: 50, f: 12 },
   { n: "Aloo tikki", unit: "piece", base: 1, cal: 150, p: 3, c: 20, f: 7 },
   { n: "Vada pav", unit: "piece", base: 1, cal: 290, p: 7, c: 40, f: 11 },
   { n: "Batata vada (no pav)", unit: "piece", base: 1, cal: 150, p: 3, c: 18, f: 8 },
@@ -347,6 +348,9 @@ const FOODS = [
   { n: "Cheesecake (slice)", unit: "slice", base: 1, cal: 400, p: 7, c: 38, f: 25 },
   { n: "Plum cake (slice)", unit: "slice", base: 1, cal: 320, p: 4, c: 50, f: 11 },
   { n: "Cupcake (frosted)", unit: "cupcake", base: 1, cal: 290, p: 3, c: 40, f: 13 },
+  { n: "Brownie", unit: "piece", base: 1, cal: 250, p: 3, c: 34, f: 12 },
+  { n: "Walnut brownie", unit: "piece", base: 1, cal: 290, p: 4, c: 33, f: 16 },
+  { n: "Brownie with ice cream", unit: "plate", base: 1, cal: 450, p: 6, c: 56, f: 22 },
   // fruit
   { n: "Banana", unit: "medium banana", base: 1, cal: 105, p: 1.3, c: 27, f: 0.4 },
   { n: "Apple", unit: "medium apple", base: 1, cal: 95, p: 0.5, c: 25, f: 0.3 },
