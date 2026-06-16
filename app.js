@@ -37,6 +37,25 @@ const CARDIO_OPTIONS = [
   { name: "Dancing", met: 5.0 },
   { name: "Yoga", met: 3.0 },
   { name: "Pilates", met: 3.0 },
+  // sports & games
+  { name: "Pickleball", met: 5.5 },
+  { name: "Cricket", met: 5.0 },
+  { name: "Bowling", met: 3.8 },
+  { name: "Tennis", met: 7.3 },
+  { name: "Badminton", met: 5.5 },
+  { name: "Table tennis", met: 4.0 },
+  { name: "Squash", met: 7.3 },
+  { name: "Basketball", met: 6.5 },
+  { name: "Football (soccer)", met: 7.0 },
+  { name: "Volleyball", met: 4.0 },
+  { name: "Frisbee / throwball", met: 3.0 },
+  { name: "Golf (walking)", met: 4.8 },
+  { name: "Skating", met: 7.0 },
+  { name: "Hiking / trekking", met: 6.0 },
+  { name: "Boxing (bag/pads)", met: 7.8 },
+  { name: "Martial arts", met: 10.0 },
+  { name: "Rock climbing", met: 8.0 },
+  { name: "Skiing", met: 7.0 },
 ];
 
 /* exercises grouped by workout type — the picker prioritises the chosen day's moves */
