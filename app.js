@@ -862,6 +862,43 @@ function renderDashboard() {
     mWrap.appendChild(el(`<div class="empty">No food logged</div>`));
   }
   d.meals.forEach((m) => mWrap.appendChild(mealItem(m, true)));
+
+  renderRecentDays();
+}
+
+// past days shown as tappable cards on the dashboard, so history is visible without the picker
+function renderRecentDays() {
+  const wrap = $("#dash-recent"); const head = $("#dash-recent-head");
+  if (!wrap) return;
+  // only relevant on today's view
+  if (!isToday(viewDate)) {
+    wrap.style.display = "none"; if (head) head.style.display = "none"; return;
+  }
+  wrap.style.display = ""; if (head) head.style.display = "";
+  wrap.innerHTML = "";
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let shown = 0;
+  for (let i = 1; i <= 30 && shown < 10; i++) {
+    const dayDate = new Date(today); dayDate.setDate(dayDate.getDate() - i);
+    const dd = DATA.days[keyOf(dayDate)];
+    if (!dd) continue;
+    const eaten = (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0);
+    const acts = (dd.workouts || []).length + (dd.cardio || []).length + (dd.activity || []).length;
+    if (!eaten && !acts) continue; // skip days with nothing logged
+    const lbl = i === 1 ? "Yesterday" : dayDate.toLocaleDateString(undefined, { weekday: "long" });
+    const sub = dayDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const meta = [eaten ? `${Math.round(eaten)} kcal` : "", acts ? `${acts} logged` : ""].filter(Boolean).join(" · ");
+    const row = el(`<div class="item tappable">
+      <div class="grow"><div class="title">${lbl} <span class="pill">${sub}</span></div><div class="sub">${meta}</div></div>
+      <span class="chev">›</span>
+    </div>`);
+    row.onclick = () => { viewDate = dayDate; renderAll(); haptic(); const m = $("#main"); if (m) m.scrollTop = 0; };
+    wrap.appendChild(row);
+    shown++;
+  }
+  if (!shown) {
+    wrap.appendChild(el(`<div class="empty">No earlier days logged yet</div>`));
+  }
 }
 
 function renderTraining(wrap, d, mini) {

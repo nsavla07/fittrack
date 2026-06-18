@@ -40,6 +40,8 @@ body {
 .date-label { cursor: pointer; }
 .date-label.jumpable { color: var(--accent); }
 
+.chev { color: var(--muted); font-size: 22px; line-height: 1; padding-left: 6px; }
+
 /* day picker list */
 .head-spacer { width: 52px; }
 .date-list { display: flex; flex-direction: column; max-height: 64vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
