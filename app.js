@@ -922,7 +922,7 @@ function fillRecentDays(wrap) {
 }
 
 function renderRecentDays() {
-  fillRecentDays($("#dash-recent"));
+  // shown on Workouts & Food (to add details to past days), not on the home page
   fillRecentDays($("#wo-recent"));
   fillRecentDays($("#nut-recent"));
 }
