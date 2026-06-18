@@ -781,10 +781,10 @@ function renderDate() {
     ? "Today"
     : viewDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const dl = $("#date-label");
-  dl.textContent = lbl;
+  dl.textContent = lbl + " ▾";          // caret hints it opens the day picker
   const past = !isToday(viewDate);
-  dl.classList.toggle("jumpable", past); // hint that tapping returns to today
-  dl.title = past ? "Back to today" : "";
+  dl.classList.toggle("jumpable", past); // accent colour when viewing a past day
+  dl.title = "Pick a day";
   // don't allow future days
   $("#date-next").style.visibility = past ? "visible" : "hidden";
 }
@@ -1408,11 +1408,42 @@ $("#date-next").onclick = () => {
   if (isToday(viewDate)) return;
   viewDate.setDate(viewDate.getDate() + 1); renderAll();
 };
-// tap the date to jump straight back to today
-$("#date-label").onclick = () => {
-  if (isToday(viewDate)) return;
-  viewDate = new Date(); renderAll(); haptic();
-};
+// tap the date to open the vertical day picker
+$("#date-label").onclick = () => openDatePicker();
+
+// build a scrollable list of recent days (newest first) to jump between
+function openDatePicker() {
+  const wrap = $("#date-list");
+  wrap.innerHTML = "";
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  // go back to the oldest logged day, but always show at least 14 days
+  let earliest = new Date(today); earliest.setDate(earliest.getDate() - 13);
+  Object.keys(DATA.days).forEach((k) => {
+    const d = new Date(k + "T12:00:00"); d.setHours(0, 0, 0, 0);
+    if (d < earliest) earliest = d;
+  });
+  const curKey = keyOf(viewDate);
+  const yKey = keyOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1));
+  let count = 0;
+  for (let d = new Date(today); d >= earliest && count < 400; d.setDate(d.getDate() - 1), count++) {
+    const dayDate = new Date(d);
+    const k = keyOf(dayDate);
+    const dd = DATA.days[k];
+    const eaten = dd ? (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0) : 0;
+    const acts = dd ? ((dd.workouts || []).length + (dd.cardio || []).length + (dd.activity || []).length) : 0;
+    const lbl = k === keyOf(today) ? "Today" : k === yKey ? "Yesterday"
+      : dayDate.toLocaleDateString(undefined, { weekday: "long" });
+    const sub = dayDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    const meta = [eaten ? `${Math.round(eaten)} kcal` : "", acts ? `${acts} logged` : ""].filter(Boolean).join(" · ") || "—";
+    const row = el(`<button type="button" class="date-row${k === curKey ? " active" : ""}">
+      <span class="dr-main"><b>${lbl}</b><small>${sub}</small></span>
+      <span class="dr-meta">${meta}</span>
+    </button>`);
+    row.onclick = () => { viewDate = dayDate; closeModal("#date-modal"); renderAll(); haptic(); };
+    wrap.appendChild(row);
+  }
+  openModal("#date-modal");
+}
 
 /* ============================================================
    MODALS
