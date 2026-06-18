@@ -866,39 +866,46 @@ function renderDashboard() {
   renderRecentDays();
 }
 
-// past days shown as tappable cards on the dashboard, so history is visible without the picker
-function renderRecentDays() {
-  const wrap = $("#dash-recent"); const head = $("#dash-recent-head");
+// recent days as tappable cards (Today + last logged days), shown on dashboard,
+// workouts and food so you can jump to any day and add details without the picker
+function dayCard(dayDate, i, curKey) {
+  const k = keyOf(dayDate);
+  const dd = DATA.days[k];
+  const eaten = dd ? (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0) : 0;
+  const acts = dd ? ((dd.workouts || []).length + (dd.cardio || []).length + (dd.activity || []).length) : 0;
+  const lbl = i === 0 ? "Today" : i === 1 ? "Yesterday" : dayDate.toLocaleDateString(undefined, { weekday: "long" });
+  const sub = dayDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const meta = [eaten ? `${Math.round(eaten)} kcal` : "", acts ? `${acts} logged` : ""].filter(Boolean).join(" · ") || "—";
+  const row = el(`<div class="item tappable${k === curKey ? " active" : ""}">
+    <div class="grow"><div class="title">${lbl} <span class="pill">${sub}</span></div><div class="sub">${meta}</div></div>
+    <span class="chev">›</span>
+  </div>`);
+  row.onclick = () => { viewDate = new Date(dayDate); renderAll(); haptic(); const m = $("#main"); if (m) m.scrollTop = 0; };
+  return row;
+}
+
+function fillRecentDays(wrap) {
   if (!wrap) return;
-  // only relevant on today's view
-  if (!isToday(viewDate)) {
-    wrap.style.display = "none"; if (head) head.style.display = "none"; return;
-  }
-  wrap.style.display = ""; if (head) head.style.display = "";
   wrap.innerHTML = "";
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  const curKey = keyOf(viewDate);
   let shown = 0;
-  for (let i = 1; i <= 30 && shown < 10; i++) {
+  for (let i = 0; i <= 60 && shown < 12; i++) {
     const dayDate = new Date(today); dayDate.setDate(dayDate.getDate() - i);
-    const dd = DATA.days[keyOf(dayDate)];
-    if (!dd) continue;
-    const eaten = (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0);
-    const acts = (dd.workouts || []).length + (dd.cardio || []).length + (dd.activity || []).length;
-    if (!eaten && !acts) continue; // skip days with nothing logged
-    const lbl = i === 1 ? "Yesterday" : dayDate.toLocaleDateString(undefined, { weekday: "long" });
-    const sub = dayDate.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    const meta = [eaten ? `${Math.round(eaten)} kcal` : "", acts ? `${acts} logged` : ""].filter(Boolean).join(" · ");
-    const row = el(`<div class="item tappable">
-      <div class="grow"><div class="title">${lbl} <span class="pill">${sub}</span></div><div class="sub">${meta}</div></div>
-      <span class="chev">›</span>
-    </div>`);
-    row.onclick = () => { viewDate = dayDate; renderAll(); haptic(); const m = $("#main"); if (m) m.scrollTop = 0; };
-    wrap.appendChild(row);
+    const k = keyOf(dayDate);
+    const dd = DATA.days[k];
+    const has = dd && ((dd.meals || []).length || (dd.workouts || []).length || (dd.cardio || []).length || (dd.activity || []).length);
+    // always keep Today and the day currently being viewed; otherwise only logged days
+    if (i !== 0 && !has && k !== curKey) continue;
+    wrap.appendChild(dayCard(dayDate, i, curKey));
     shown++;
   }
-  if (!shown) {
-    wrap.appendChild(el(`<div class="empty">No earlier days logged yet</div>`));
-  }
+}
+
+function renderRecentDays() {
+  fillRecentDays($("#dash-recent"));
+  fillRecentDays($("#wo-recent"));
+  fillRecentDays($("#nut-recent"));
 }
 
 function renderTraining(wrap, d, mini) {

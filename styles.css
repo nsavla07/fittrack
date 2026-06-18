@@ -41,6 +41,8 @@ body {
 .date-label.jumpable { color: var(--accent); }
 
 .chev { color: var(--muted); font-size: 22px; line-height: 1; padding-left: 6px; }
+.item.active { box-shadow: inset 3px 0 0 var(--accent); }
+.item.active .title { color: var(--accent); }
 
 /* day picker list */
 .head-spacer { width: 52px; }
