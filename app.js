@@ -8,7 +8,7 @@ const STORE_KEY = "fittrack_v1";
 const DEFAULT_DATA = {
   goals: {
     calories: 1800, protein: 120, carbs: 180, fat: 60, weight: 75,
-    startWeight: 75, targetWeight: 65, weeklyRate: 0.5,
+    startWeight: 75, targetWeight: 65, weeklyRate: 0.5, startDate: "",
     cardioGoal: 175, stepsGoal: 9000, strengthGoal: 3,
   },
   days: {},     // { "2026-06-01": { workouts: [], meals: [], cardio: [] } }
@@ -641,6 +641,19 @@ function estimateStepKcal(steps) {
   return Math.round(steps * 0.04 * (kg / 70)); // ~40 kcal per 1000 steps at 70 kg
 }
 
+// the day the plan began — used to anchor the (fixed) target date
+function planStartDate() {
+  const g = DATA.goals;
+  if (g.startDate) return new Date(g.startDate + "T12:00:00");
+  if (DATA.weights.length) {
+    const earliest = [...DATA.weights].sort((a, b) => (a.date < b.date ? -1 : 1))[0].date;
+    return new Date(earliest + "T12:00:00");
+  }
+  const keys = Object.keys(DATA.days).sort();
+  if (keys.length) return new Date(keys[0] + "T12:00:00");
+  return new Date();
+}
+
 function planInfo() {
   const g = DATA.goals;
   const start = +g.startWeight || +g.weight || 0;
@@ -648,10 +661,15 @@ function planInfo() {
   const cur = latestWeight() ?? (+g.weight || start);
   const rate = +g.weeklyRate || 0.5;
   const toLose = Math.max(cur - target, 0);
-  const weeks = rate > 0 ? Math.ceil(toLose / rate) : 0;
-  const eta = new Date(); eta.setDate(eta.getDate() + weeks * 7);
+  // target date is FIXED: anchored to the start date + the full plan duration
+  // (start weight → target at the planned rate), so it doesn't drift day to day
+  const startDate = planStartDate();
+  const totalWeeks = rate > 0 ? Math.ceil(Math.max(start - target, 0) / rate) : 0;
+  const eta = new Date(startDate); eta.setDate(eta.getDate() + totalWeeks * 7);
+  // weeks remaining counts down from today toward that fixed date
+  const weeks = Math.max(0, Math.ceil((eta - new Date()) / (7 * 86400000)));
   const pct = start > target ? Math.min(Math.max((start - cur) / (start - target), 0), 1) : 0;
-  return { start, target, cur, rate, weeks, eta, pct, toLose };
+  return { start, target, cur, rate, weeks, eta, pct, toLose, startDate, totalWeeks };
 }
 
 function suggestedCalories(kg, rate) {
@@ -663,14 +681,15 @@ function suggestedCalories(kg, rate) {
 }
 
 function milestones() {
-  const { start, target, rate } = planInfo();
+  const { start, target, rate, startDate } = planInfo();
   const cur = latestWeight() ?? start;
   if (start <= target || rate <= 0) return [];
-  const out = []; const today = new Date();
+  const out = [];
   let w = start, wk = 0;
   while (w > target + 0.0001 && wk < 104) {
     wk++; w = Math.max(start - rate * wk, target);
-    const date = new Date(today); date.setDate(today.getDate() + wk * 7);
+    // milestone dates anchored to the start date, not today (so they stay put)
+    const date = new Date(startDate); date.setDate(date.getDate() + wk * 7);
     out.push({ week: wk, weight: Math.round(w * 10) / 10, date, achieved: cur <= w + 0.0001 });
   }
   return out;
@@ -1358,6 +1377,7 @@ function renderProfile() {
   $("#p-weight").value = (latestWeight() ?? g.weight) ?? "";
   $("#p-target").value = g.targetWeight ?? "";
   $("#p-rate").value = g.weeklyRate ?? "";
+  $("#p-startdate").value = g.startDate || keyOf(planStartDate());
   $("#p-cal-goal").value = g.calories;
   $("#p-protein").value = g.protein;
   $("#p-carbs").value = g.carbs;
@@ -1383,10 +1403,14 @@ function updatePlanReadout() {
     box.innerHTML = `<b>🎉 You're at or below your target!</b>`;
     return;
   }
-  const weeks = Math.ceil((cur - target) / rate);
-  const eta = new Date(); eta.setDate(eta.getDate() + weeks * 7);
+  // anchor the target date to the start weight + start date (fixed), matching Progress
+  const base = start || cur;
+  const totalWeeks = Math.ceil((base - target) / rate);
+  const sd = $("#p-startdate").value;
+  const startDate = sd ? new Date(sd + "T12:00:00") : new Date();
+  const eta = new Date(startDate); eta.setDate(eta.getDate() + totalWeeks * 7);
   box.innerHTML = `
-    <div>Lose <b>${(cur - target).toFixed(1)} kg</b> in about <b>${weeks} weeks</b> at ${rate} kg/week.</div>
+    <div><b>${(cur - target).toFixed(1)} kg</b> to go at ${rate} kg/week (${totalWeeks}-week plan).</div>
     <div>Target date: <b>${eta.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</b></div>
     <div>Suggested intake: <b>~${suggestedCalories(cur, rate)} kcal/day</b></div>`;
 }
@@ -2325,7 +2349,7 @@ $("#save-weight").onclick = () => {
 /* ============================================================
    PROFILE / GOALS
 ============================================================ */
-["#p-start", "#p-weight", "#p-target", "#p-rate"].forEach((s) => {
+["#p-start", "#p-weight", "#p-target", "#p-rate", "#p-startdate"].forEach((s) => {
   $(s).addEventListener("input", updatePlanReadout);
 });
 $("#suggest-cal-btn").onclick = () => {
@@ -2342,6 +2366,7 @@ $("#save-profile-btn").onclick = () => {
   g.startWeight = $("#p-start").value ? +$("#p-start").value : null;
   g.targetWeight = $("#p-target").value ? +$("#p-target").value : null;
   g.weeklyRate = $("#p-rate").value ? +$("#p-rate").value : 0.5;
+  g.startDate = $("#p-startdate").value || "";
   g.cardioGoal = +$("#p-cardio-goal").value || 0;
   g.stepsGoal = +$("#p-steps-goal").value || 0;
   g.strengthGoal = +$("#p-strength-goal").value || 0;
