@@ -513,6 +513,7 @@ const FOODS = [
   { n: "Bruschetta", unit: "plate (4)", base: 1, cal: 260, p: 7, c: 36, f: 10 },
   { n: "Garlic bread with cheese", unit: "plate (2)", base: 1, cal: 330, p: 9, c: 38, f: 15 },
   { n: "Melted cheese garlic bread", unit: "plate (2)", base: 1, cal: 440, p: 14, c: 40, f: 24 },
+  { n: "Melted cheese garlic bread (piece)", unit: "piece", base: 1, cal: 220, p: 7, c: 20, f: 12 },
   { n: "Minestrone soup", unit: "bowl", base: 1, cal: 150, p: 6, c: 24, f: 3 },
   { n: "Caprese salad", unit: "plate", base: 1, cal: 280, p: 14, c: 8, f: 22 },
   { n: "Margherita calzone (veg)", unit: "piece", base: 1, cal: 580, p: 24, c: 62, f: 26 },
@@ -525,6 +526,12 @@ const FOODS = [
   { n: "Peri peri fries", unit: "serving", base: 1, cal: 400, p: 5, c: 50, f: 19 },
   { n: "Peri peri cheese fries", unit: "serving", base: 1, cal: 510, p: 13, c: 49, f: 28 },
   { n: "Chocolate", unit: "g", base: 100, cal: 535, p: 7.6, c: 59, f: 30 },
+  // Amul dark chocolate — per piece (~12.5 g square); set quantity to how many pieces
+  { n: "Amul Dark Chocolate 55% (piece)", unit: "piece", base: 1, cal: 66, p: 1, c: 6.5, f: 4.2 },
+  { n: "Amul Dark Chocolate 75% (piece)", unit: "piece", base: 1, cal: 68, p: 1.1, c: 5, f: 5 },
+  { n: "Amul Dark Chocolate 90% (piece)", unit: "piece", base: 1, cal: 70, p: 1.3, c: 3.5, f: 5.6 },
+  { n: "Amul Tropical Orange Dark (piece)", unit: "piece", base: 1, cal: 64, p: 0.9, c: 6.8, f: 4 },
+  { n: "Amul Fruit & Nut Dark (piece)", unit: "piece", base: 1, cal: 68, p: 1.3, c: 6, f: 4.4 },
   { n: "Ice cream", unit: "g", base: 100, cal: 207, p: 3.5, c: 24, f: 11 },
   // Naturals ice cream (veg) — per scoop (~100 ml)
   { n: "Naturals Tender Coconut (scoop)", unit: "scoop", base: 1, cal: 140, p: 3, c: 18, f: 6 },
