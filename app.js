@@ -525,6 +525,7 @@ const FOODS = [
   { n: "Cheese fries", unit: "serving", base: 1, cal: 480, p: 12, c: 48, f: 26 },
   { n: "Peri peri fries", unit: "serving", base: 1, cal: 400, p: 5, c: 50, f: 19 },
   { n: "Peri peri cheese fries", unit: "serving", base: 1, cal: 510, p: 13, c: 49, f: 28 },
+  { n: "Honey Chilli Potato puffs (packet 55g)", unit: "packet (55g)", base: 1, cal: 78, p: 1, c: 10, f: 3.9 },
   { n: "Chocolate", unit: "g", base: 100, cal: 535, p: 7.6, c: 59, f: 30 },
   // Amul dark chocolate — per piece (~12.5 g square); set quantity to how many pieces
   { n: "Amul Dark Chocolate 55% (piece)", unit: "piece", base: 1, cal: 66, p: 1, c: 6.5, f: 4.2 },
