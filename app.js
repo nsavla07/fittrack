@@ -9,7 +9,7 @@ const DEFAULT_DATA = {
   goals: {
     calories: 1800, protein: 120, carbs: 180, fat: 60, weight: 75,
     startWeight: 75, targetWeight: 65, weeklyRate: 0.5, startDate: "",
-    cardioGoal: 175, stepsGoal: 9000, strengthGoal: 3,
+    cardioGoal: 175, stepsGoal: 9000, strengthGoal: 3, stepKcalPer1000: 39,
   },
   days: {},     // { "2026-06-01": { workouts: [], meals: [], cardio: [] } }
   weights: [],  // [{ date: "2026-06-01", kg: 75 }]
@@ -723,8 +723,8 @@ function estimateCardioKcal(met, minutes) {
 }
 
 function estimateStepKcal(steps) {
-  const kg = +DATA.goals.weight || latestWeight() || +DATA.goals.startWeight || 75;
-  return Math.round(steps * 0.04 * (kg / 70)); // ~40 kcal per 1000 steps at 70 kg
+  const per1000 = +DATA.goals.stepKcalPer1000 || 39; // tunable in Goals to match your fitness app
+  return Math.round((steps * per1000) / 1000);
 }
 
 // the day the plan began — used to anchor the (fixed) target date
@@ -801,7 +801,8 @@ function weekStats(ref = new Date()) {
     if (dt < mon || dt > sun) return;
     (dd.cardio || []).forEach((c) => { cardioMin += +c.minutes || 0; cardioKcal += +c.burned || 0; steps += +c.steps || 0; });
     (dd.activity || []).forEach((a) => { steps += +a.steps || 0; });
-    strength += (dd.workouts || []).length;
+    // Functional & Abs are conditioning, not strength — don't count them toward the strength goal
+    strength += (dd.workouts || []).filter((w) => !["Functional", "Abs"].includes(w.name)).length;
     const eaten = (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0);
     if (eaten > 0) { calSum += eaten; calDays++; }
   });
@@ -1470,6 +1471,7 @@ function renderProfile() {
   $("#p-fat").value = g.fat;
   $("#p-cardio-goal").value = g.cardioGoal ?? "";
   $("#p-steps-goal").value = g.stepsGoal ?? "";
+  $("#p-step-kcal").value = g.stepKcalPer1000 ?? 39;
   $("#p-strength-goal").value = g.strengthGoal ?? "";
   updatePlanReadout();
   if (typeof refreshSyncUI === "function") refreshSyncUI();
@@ -2504,6 +2506,7 @@ $("#save-profile-btn").onclick = () => {
   g.startDate = $("#p-startdate").value || "";
   g.cardioGoal = +$("#p-cardio-goal").value || 0;
   g.stepsGoal = +$("#p-steps-goal").value || 0;
+  g.stepKcalPer1000 = +$("#p-step-kcal").value || 39;
   g.strengthGoal = +$("#p-strength-goal").value || 0;
   // current weight: keep weight-log in sync if edited here
   const cur = $("#p-weight").value ? +$("#p-weight").value : null;
