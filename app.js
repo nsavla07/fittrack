@@ -34,6 +34,8 @@ const CARDIO_OPTIONS = [
   { name: "Elliptical", met: 5.0 },
   { name: "Stair climber", met: 8.0 },
   { name: "HIIT", met: 8.0 },
+  { name: "Functional / circuit", met: 6.0 },
+  { name: "Core / abs", met: 3.8 },
   { name: "Jump rope", met: 11.0 },
   { name: "Dancing", met: 5.0 },
   { name: "Yoga", met: 3.0 },
@@ -1738,7 +1740,7 @@ function openWorkoutEdit(w) {
   editingWorkoutId = w.id;
   workoutBurnTouched = true; // keep the stored value
   $("#w-burned").value = w.burned || "";
-  const types = ["Push", "Pull", "Legs", "Functional", "Abs", "Full body"];
+  const types = ["Push", "Pull", "Legs", "Full body"];
   setGymType(types.includes(w.name) ? w.name : "Full body");
   const editor = $("#exercise-editor"); editor.innerHTML = "";
   const exs = w.exercises && w.exercises.length ? w.exercises : [{}];
