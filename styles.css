@@ -292,6 +292,7 @@ body {
   border-radius: 20px; padding: 9px 14px; font-size: 13px; cursor: pointer; font: inherit;
 }
 .chips button:active { border-color: var(--steps); color: var(--steps); }
+.chips button.on { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
 
 /* FOOD SEARCH */
 .food-results { display: flex; flex-direction: column; gap: 6px; max-height: 230px; overflow-y: auto; margin: -6px 0 12px; }

@@ -287,6 +287,14 @@
         </div>
         <label class="field"><span>Activity</span><select id="c-type" class="select"></select></label>
         <label class="field"><span>Duration (minutes)</span><input type="number" id="c-min" inputmode="numeric" placeholder="30" /></label>
+        <div class="chips" id="c-min-presets">
+          <button type="button" data-min="10">10 min</button>
+          <button type="button" data-min="15">15</button>
+          <button type="button" data-min="20">20</button>
+          <button type="button" data-min="30">30</button>
+          <button type="button" data-min="45">45</button>
+          <button type="button" data-min="60">60</button>
+        </div>
         <label class="field"><span>Steps (for walks — optional)</span><input type="number" id="c-steps" inputmode="numeric" placeholder="e.g. 1500" /></label>
         <label class="field"><span>Calories burned</span><input type="number" id="c-burned" inputmode="numeric" placeholder="auto" /></label>
         <p class="ex-sub" id="c-hint">Enter minutes, or steps for a walk.</p>

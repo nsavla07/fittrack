@@ -726,7 +726,7 @@ function latestWeight() {
 
 function estimateCardioKcal(met, minutes) {
   const kg = +DATA.goals.weight || latestWeight() || +DATA.goals.startWeight || 75;
-  return Math.round((met * 3.5 * kg / 200) * minutes);
+  return Math.round((met * 3.5 * kg / 200) * minutes * 0.85); // 0.85 = keep it conservative
 }
 
 function estimateStepKcal(steps) {
@@ -1716,9 +1716,9 @@ function recalcWorkoutBurn() {
     const sec = +r.querySelector(".s-sec").value || 0;
     if (!reps && !weight && !sec) return;       // ignore blank rows
     sets++;
-    est += 6 * (bw / 75);                        // base effort per set (bodyweight work still counts)
-    est += (reps * weight) / 200;                // heavier sets burn more
-    est += (sec * 4 * 3.5 * bw / 200) / 60;      // isometric holds (~4 MET) — plank, wall sit
+    est += 4 * (bw / 75);                        // base effort per set (kept low on purpose)
+    est += (reps * weight) / 260;                // heavier sets burn more
+    est += (sec * 3.2 * 3.5 * bw / 200) / 60;    // isometric holds — plank, wall sit (conservative)
   });
   est = Math.round(est);
   $("#w-burned").value = est || "";
@@ -2133,6 +2133,15 @@ $("#c-presets").querySelectorAll("button").forEach((b) => {
     $("#c-min").value = "";
     $("#c-steps").value = b.dataset.steps;
     recalcCardio();
+  };
+});
+// quick duration buttons — tap an approximate time instead of timing yourself
+$("#c-min-presets").querySelectorAll("button").forEach((b) => {
+  b.onclick = () => {
+    $("#c-min").value = b.dataset.min;
+    $("#c-steps").value = "";   // minutes drive the estimate for these
+    recalcCardio();
+    $("#c-min-presets").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
   };
 });
 $("#save-cardio").onclick = () => {
