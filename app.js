@@ -81,8 +81,13 @@ const EXERCISES_BY_TYPE = {
     "Clean and press", "Thruster", "Wall ball", "Jump squat", "Jumping jacks", "Mountain climber",
   ],
   Abs: [
-    "Plank", "Crunch", "Sit-up", "Leg raise", "Hanging leg raise",
-    "Russian twist", "Bicycle crunch", "Cable crunch", "Ab rollout",
+    "Plank", "Side plank", "Plank shoulder taps", "Plank jacks", "Hollow hold", "Wall sit",
+    "Crunch", "Reverse crunch", "Oblique crunch", "Bicycle crunch", "Cable crunch",
+    "Sit-up", "Decline sit-up", "V-up", "Jackknife", "Toe touches",
+    "Leg raise", "Hanging leg raise", "Hanging knee raise", "Captain's chair knee raise",
+    "Flutter kicks", "Scissor kicks", "Heel taps", "Russian twist", "Windshield wipers",
+    "Mountain climber", "Dead bug", "Bird dog", "Boat pose", "Cable woodchopper",
+    "Ab rollout", "Ab wheel", "Toes to bar", "Dragon flag", "L-sit",
   ],
 };
 // full flat list (every exercise, de-duplicated) — used for "Full body" and as fallback
