@@ -1920,6 +1920,10 @@ $("#add-another-meal").onclick = () => {
 function fillCardioSelect() {
   $("#c-type").innerHTML = CARDIO_OPTIONS.map((o, i) => `<option value="${i}">${o.name}</option>`).join("");
 }
+// walking activities produce steps; ~110 steps per minute at a brisk pace
+const STEPS_PER_MIN = 110;
+const isWalkType = (name) => /walk|hik/i.test(name);
+
 function recalcCardio() {
   const o = CARDIO_OPTIONS[+$("#c-type").value] || CARDIO_OPTIONS[0];
   const min = +$("#c-min").value || 0;
@@ -1928,9 +1932,20 @@ function recalcCardio() {
   if (min) est = estimateCardioKcal(o.met, min);
   else if (steps) est = estimateStepKcal(steps);
   $("#c-burned").value = est || "";
-  $("#c-hint").textContent = min ? `≈ ${est} kcal from ${min} min`
-    : steps ? `≈ ${est} kcal from ${steps.toLocaleString()} steps`
-    : "Enter minutes, or steps for a walk.";
+  const walk = isWalkType(o.name);
+  if (min) {
+    $("#c-hint").textContent = walk
+      ? `≈ ${est} kcal · ${min} min ≈ ${Math.round(min * STEPS_PER_MIN).toLocaleString()} steps (both counted)`
+      : `≈ ${est} kcal from ${min} min`;
+  } else if (steps) {
+    $("#c-hint").textContent = walk
+      ? `≈ ${est} kcal · ${steps.toLocaleString()} steps ≈ ${Math.round(steps / STEPS_PER_MIN)} min (both counted)`
+      : `≈ ${est} kcal from ${steps.toLocaleString()} steps`;
+  } else {
+    $("#c-hint").textContent = walk
+      ? "Enter minutes OR steps — we'll fill in the other for you."
+      : "Enter minutes (or steps for a walk).";
+  }
 }
 let editingCardioId = null;
 
@@ -1970,10 +1985,16 @@ $("#c-presets").querySelectorAll("button").forEach((b) => {
 });
 $("#save-cardio").onclick = () => {
   const o = CARDIO_OPTIONS[+$("#c-type").value] || CARDIO_OPTIONS[0];
-  const min = +$("#c-min").value || 0;
-  const steps = +$("#c-steps").value || 0;
+  let min = +$("#c-min").value || 0;
+  let steps = +$("#c-steps").value || 0;
   if (!min && !steps) { closeModal("#cardio-modal"); return; }
-  const fields = { type: o.name, minutes: min, steps, burned: +$("#c-burned").value || 0 };
+  // for walks, fill in whichever field is missing so steps AND cardio minutes both get credit
+  if (isWalkType(o.name)) {
+    if (min && !steps) steps = Math.round(min * STEPS_PER_MIN);
+    else if (steps && !min) min = Math.round(steps / STEPS_PER_MIN);
+  }
+  const burned = +$("#c-burned").value || (min ? estimateCardioKcal(o.met, min) : estimateStepKcal(steps));
+  const fields = { type: o.name, minutes: min, steps, burned };
   const cardio = dayData().cardio;
   if (editingCardioId) {
     const c = cardio.find((x) => x.id === editingCardioId);
