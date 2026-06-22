@@ -335,6 +335,21 @@ body {
 .fo-star { background: none; border: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
 .fo-star.on { color: var(--carbs); }
 .food-list-head { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 2px 2px 8px; }
+
+/* protein focus line (Today) */
+.protein-focus { background: rgba(255,107,139,.12); border: 1px solid rgba(255,107,139,.35); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
+.protein-focus.done { background: rgba(52,211,153,.12); border-color: rgba(52,211,153,.4); }
+
+/* weight chart: trend (moving-average) line + legend */
+.wchart .wline { stroke-width: 1.5; opacity: .5; }
+.wchart .wline-ma { fill: none; stroke: var(--accent-2); stroke-width: 2.5; }
+.wchart-legend { display: flex; gap: 16px; justify-content: center; margin-top: 6px; font-size: 11px; }
+.wchart-legend .lg-raw { color: var(--accent); }
+.wchart-legend .lg-ma { color: var(--accent-2); }
+
+/* swipe-to-delete feedback */
+.item { will-change: transform; }
+.item.swipe-armed { background: rgba(255,92,92,.14); border-color: var(--danger); }
 .portion-chips { margin-top: -2px; margin-bottom: 12px; }
 .fo-tag { font-size: 10px; color: var(--accent-2); border: 1px solid var(--accent-2); border-radius: 20px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
 .fo-tag.mine { color: var(--steps); border-color: var(--steps); }

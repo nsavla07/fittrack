@@ -910,6 +910,41 @@ function weightProjection() {
 const $ = (sel) => document.querySelector(sel);
 const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 
+// swipe a list row left to delete (taps and buttons still work; vertical scroll unaffected)
+function enableSwipeDelete(node, onDelete) {
+  let down = false, startX = 0, startY = 0, dx = 0, mode = 0; // mode: 0 undecided, 1 horizontal, 2 vertical
+  node.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button")) return;
+    down = true; startX = e.clientX; startY = e.clientY; dx = 0; mode = 0;
+    node.style.transition = "none";
+  });
+  node.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    const ddx = e.clientX - startX, ddy = e.clientY - startY;
+    if (mode === 0) {
+      if (Math.abs(ddx) < 8 && Math.abs(ddy) < 8) return;
+      mode = Math.abs(ddx) > Math.abs(ddy) + 4 ? 1 : 2;
+      if (mode === 1) { try { node.setPointerCapture(e.pointerId); } catch {} }
+    }
+    if (mode !== 1) return;
+    dx = Math.min(0, ddx);
+    node.style.transform = `translateX(${dx}px)`;
+    node.classList.toggle("swipe-armed", dx < -80);
+  });
+  const finish = () => {
+    if (!down) return; down = false;
+    if (mode === 1) {
+      node.style.transition = "transform .2s ease";
+      if (dx < -80) { node.style.transform = "translateX(-110%)"; node.addEventListener("transitionend", onDelete, { once: true }); }
+      else node.style.transform = "translateX(0)";
+    } else node.style.transform = "";
+    node.classList.remove("swipe-armed");
+    mode = 0;
+  };
+  node.addEventListener("pointerup", finish);
+  node.addEventListener("pointercancel", finish);
+}
+
 function renderDate() {
   const lbl = isToday(viewDate)
     ? "Today"
@@ -943,7 +978,7 @@ function renderDashboard() {
   $("#cal-ring").style.stroke = t.eaten > g.calories ? "var(--danger)" : "var(--accent)";
 
   const setMacro = (id, val, goal) => {
-    $(id).textContent = `${Math.round(val)}g`;
+    $(id).textContent = goal > 0 ? `${Math.round(val)}/${goal}g` : `${Math.round(val)}g`;
     const bar = $(id).parentElement.querySelector(".macro-bar span");
     bar.style.width = Math.min(goal > 0 ? (val / goal) * 100 : 0, 100) + "%";
     $(id).parentElement.classList.toggle("over", goal > 0 && val > goal);
@@ -951,6 +986,19 @@ function renderDashboard() {
   setMacro("#m-protein", t.protein, g.protein);
   setMacro("#m-carbs", t.carbs, g.carbs);
   setMacro("#m-fat", t.fat, g.fat);
+
+  // protein focus (key macro when cutting)
+  const pf = $("#protein-focus");
+  if (pf) {
+    if (g.protein > 0) {
+      pf.classList.remove("hidden");
+      const left = Math.max(g.protein - t.protein, 0);
+      pf.classList.toggle("done", left <= 0);
+      pf.innerHTML = left > 0
+        ? `🥩 <b>${Math.round(left)} g protein</b> to go <span class="muted">· ${Math.round(t.protein)}/${g.protein} g</span>`
+        : `🥩 <b>Protein goal hit</b> <span class="muted">· ${Math.round(t.protein)}/${g.protein} g</span> ✓`;
+    } else pf.classList.add("hidden");
+  }
 
   // daily steps progress (walks + everyday activity)
   const stepsGoal = +g.stepsGoal || 0;
@@ -1101,7 +1149,7 @@ function activityItem(a, mini) {
       ${a.kcal ? `<span class="kcal">−${Math.round(a.kcal)}</span>` : ""}
       ${mini ? "" : `<button class="del" aria-label="Delete">✕</button>`}
     </div>`);
-  if (!mini) node.querySelector(".del").onclick = () => removeActivity(a.id);
+  if (!mini) { node.querySelector(".del").onclick = () => removeActivity(a.id); enableSwipeDelete(node, () => removeActivity(a.id)); }
   return node;
 }
 
@@ -1121,6 +1169,7 @@ function cardioItem(c, mini) {
     const g = node.querySelector(".grow");
     g.classList.add("tappable");
     g.onclick = () => openCardioEdit(c);
+    enableSwipeDelete(node, () => removeCardio(c.id));
   }
   return node;
 }
@@ -1192,6 +1241,7 @@ function workoutItem(w, mini) {
     const g = node.querySelector(".grow");
     g.classList.add("tappable");
     g.onclick = () => openWorkoutEdit(w);
+    enableSwipeDelete(node, () => removeWorkout(w.id));
   }
   return node;
 }
@@ -1227,6 +1277,7 @@ function mealItem(m, mini) {
     const g = node.querySelector(".grow");
     g.classList.add("tappable");
     g.onclick = () => openMealEdit(m);
+    enableSwipeDelete(node, () => removeMeal(m.id));
   }
   return node;
 }
@@ -1275,12 +1326,21 @@ function weightChartSVG() {
   const x = (i) => P + (i * (W - 2 * P)) / (ws.length - 1);
   const y = (v) => P + ((max - v) * (H - 2 * P)) / (max - min);
   const pts = ws.map((p, i) => `${x(i).toFixed(1)},${y(p.kg).toFixed(1)}`).join(" ");
+  // trailing moving average (smooths daily water-weight noise) — window up to 5
+  const ma = ws.map((_, i) => {
+    const from = Math.max(0, i - 4);
+    const slice = ws.slice(from, i + 1);
+    return slice.reduce((s, p) => s + p.kg, 0) / slice.length;
+  });
+  const maPts = ma.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const tgtY = tgt != null ? y(tgt).toFixed(1) : null;
   return `<svg viewBox="0 0 ${W} ${H}" class="wchart" preserveAspectRatio="none">
     ${tgt != null ? `<line class="tgt-line" x1="0" y1="${tgtY}" x2="${W}" y2="${tgtY}"></line>` : ""}
     <polyline class="wline" points="${pts}"></polyline>
+    <polyline class="wline-ma" points="${maPts}"></polyline>
     ${ws.map((p, i) => `<circle class="wdot" cx="${x(i).toFixed(1)}" cy="${y(p.kg).toFixed(1)}" r="2.6"></circle>`).join("")}
-  </svg>`;
+  </svg>
+  <div class="wchart-legend"><span class="lg-raw">● actual</span><span class="lg-ma">— trend (avg)</span></div>`;
 }
 
 let progressWeek = new Date();
