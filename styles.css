@@ -41,6 +41,28 @@ body {
 .date-label.jumpable { color: var(--accent); }
 
 .chev { color: var(--muted); font-size: 22px; line-height: 1; padding-left: 6px; }
+
+/* More screen rows */
+.more-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 12px; color: var(--text); cursor: pointer; }
+.more-row:active { background: var(--surface-2); }
+.more-ico { font-size: 24px; }
+.more-txt { display: flex; flex-direction: column; flex: 1; }
+.more-txt b { font-size: 16px; }
+.more-txt small { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+/* 7-day calorie bar chart */
+.cchart { margin-top: 6px; }
+.cbars { position: relative; display: flex; align-items: flex-end; gap: 8px; height: 120px; }
+.cbar-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.cbar { width: 100%; min-height: 3px; background: var(--accent); border-radius: 5px 5px 2px 2px; transition: height .4s ease; }
+.cbar.over { background: var(--danger); }
+.cgoal { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--accent-2); }
+.clabels { display: flex; gap: 8px; margin-top: 6px; }
+.clabels span { flex: 1; text-align: center; font-size: 11px; color: var(--muted); }
+
+/* per-meal macro mini bar */
+.macro-mini { display: flex; gap: 2px; height: 4px; border-radius: 3px; overflow: hidden; margin-top: 7px; max-width: 170px; }
+.macro-mini span { display: block; height: 100%; }
 .item.active { box-shadow: inset 3px 0 0 var(--accent); }
 .item.active .title { color: var(--accent); }
 

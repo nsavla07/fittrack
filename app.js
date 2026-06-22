@@ -238,6 +238,9 @@ const FOODS = [
   { n: "Moong (boiled, tadka)", unit: "bowl", base: 1, cal: 180, p: 12, c: 25, f: 3 },
   { n: "Sprouts salad", unit: "bowl", base: 1, cal: 150, p: 9, c: 20, f: 3 },
   { n: "Dal fry", unit: "bowl", base: 1, cal: 200, p: 9, c: 22, f: 8 },
+  { n: "Moong dal tadka", unit: "bowl", base: 1, cal: 180, p: 10, c: 24, f: 5 },
+  { n: "Dal tadka", unit: "bowl", base: 1, cal: 210, p: 9, c: 24, f: 9 },
+  { n: "Yellow dal (toor)", unit: "bowl", base: 1, cal: 190, p: 9, c: 25, f: 6 },
   { n: "Sweet corn / corn chaat", unit: "bowl", base: 1, cal: 120, p: 3, c: 22, f: 2 },
   { n: "Buttermilk (chaas)", unit: "glass", base: 1, cal: 40, p: 2, c: 4, f: 1.5 },
   { n: "Lassi (sweet)", unit: "glass", base: 1, cal: 180, p: 5, c: 30, f: 4 },
@@ -1136,6 +1139,18 @@ function workoutItem(w, mini) {
   return node;
 }
 
+// tiny P/C/F split bar (widths by calorie contribution)
+function macroMiniBar(m) {
+  const pc = (+m.protein || 0) * 4, cc = (+m.carbs || 0) * 4, fc = (+m.fat || 0) * 9;
+  const t = pc + cc + fc;
+  if (t <= 0) return "";
+  const w = (x) => `${((x / t) * 100).toFixed(0)}%`;
+  return `<div class="macro-mini">
+    <span style="width:${w(pc)};background:var(--protein)"></span>
+    <span style="width:${w(cc)};background:var(--carbs)"></span>
+    <span style="width:${w(fc)};background:var(--fat)"></span>
+  </div>`;
+}
 function mealItem(m, mini) {
   const macros = [m.protein && `P${m.protein}`, m.carbs && `C${m.carbs}`, m.fat && `F${m.fat}`]
     .filter(Boolean).join(" · ");
@@ -1144,6 +1159,7 @@ function mealItem(m, mini) {
       <div class="grow">
         <div class="title">${escapeHtml(m.name || "Food")} <span class="pill">${m.type || ""}</span></div>
         <div class="sub">${macros || "&nbsp;"}</div>
+        ${macroMiniBar(m)}
       </div>
       <span class="kcal">${Math.round(m.calories || 0)}</span>
       ${mini ? "" : `<div class="item-actions"><button class="edit" aria-label="Edit">✎</button><button class="del" aria-label="Delete">✕</button></div>`}
@@ -1252,6 +1268,35 @@ function insightsCardHTML(cur) {
     </div>`;
 }
 
+// 7-day calorie bar chart vs goal
+function calorieChartHTML() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const goal = +DATA.goals.calories || 0;
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const dd = DATA.days[keyOf(d)];
+    const eaten = dd ? (dd.meals || []).reduce((s, m) => s + (+m.calories || 0), 0) : 0;
+    days.push({ d, eaten });
+  }
+  const max = Math.max(goal, ...days.map((x) => x.eaten), 1) * 1.12;
+  const goalPct = goal ? (goal / max) * 100 : 0;
+  const bars = days.map((x) => {
+    const h = Math.max((x.eaten / max) * 100, x.eaten ? 3 : 0);
+    const over = goal && x.eaten > goal;
+    return `<div class="cbar-col" title="${Math.round(x.eaten)} kcal"><div class="cbar ${over ? "over" : ""}" style="height:${h}%"></div></div>`;
+  }).join("");
+  const labels = days.map((x) => `<span>${x.d.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 1)}</span>`).join("");
+  return `
+    <div class="card">
+      <div class="week-head"><b>Last 7 days</b><span class="muted">${goal ? `goal ${goal} kcal` : ""}</span></div>
+      <div class="cchart">
+        <div class="cbars">${goal ? `<div class="cgoal" style="bottom:${goalPct}%"></div>` : ""}${bars}</div>
+        <div class="clabels">${labels}</div>
+      </div>
+    </div>`;
+}
+
 // "Strength" card: this week's lifted volume + all-time personal bests
 function strengthCardHTML() {
   const vol = weekVolume(progressWeek);
@@ -1285,6 +1330,7 @@ function renderProgress() {
       <div class="chart-wrap">${weightChartSVG()}</div>
     </div>
     ${insightsCardHTML(cur)}
+    ${calorieChartHTML()}
     <div class="card">
       <div class="month-nav">
         <button id="pw-prev" class="icon-btn" aria-label="Previous week">‹</button>
@@ -1553,22 +1599,28 @@ function removeActivity(id) { removeWithUndo(dayData().activity, id, "Activity")
 /* ============================================================
    NAVIGATION
 ============================================================ */
-const TITLES = { dashboard: "Today", workouts: "Workouts", nutrition: "Nutrition", progress: "Progress", expenses: "Expenses", trips: "Trips", profile: "Goals" };
+const TITLES = { dashboard: "Today", workouts: "Workouts", nutrition: "Nutrition", progress: "Progress", expenses: "Expenses", trips: "Trips", profile: "Goals", more: "More" };
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.add("hidden"));
   $("#screen-" + name).classList.remove("hidden");
-  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.screen === name));
+  // Spend & Trips live under the "More" tab, so keep More highlighted for them
+  const tabName = (name === "expenses" || name === "trips") ? "more" : name;
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.screen === tabName));
   $("#screen-title").textContent = TITLES[name];
   // date switcher only relevant for day-based screens
-  const showDate = name !== "profile" && name !== "progress" && name !== "expenses" && name !== "trips";
-  $("#date-prev").style.display = showDate ? "" : "none";
-  $("#date-next").style.display = showDate ? "" : "none";
-  $("#date-label").style.display = showDate ? "" : "none";
+  const dayBased = name === "dashboard" || name === "workouts" || name === "nutrition";
+  $("#date-prev").style.display = dayBased ? "" : "none";
+  $("#date-next").style.display = dayBased ? "" : "none";
+  $("#date-label").style.display = dayBased ? "" : "none";
   if (name === "profile") renderProfile();
   if (name === "progress") renderProgress();
   if (name === "expenses") renderExpenses();
   if (name === "trips") { openTripId = null; renderTrips(); }
 }
+// rows inside the More screen open Spend / Trips
+document.querySelectorAll("#screen-more .more-row").forEach((b) => {
+  b.onclick = () => { haptic(8); showScreen(b.dataset.go); };
+});
 
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.onclick = () => { haptic(8); showScreen(tab.dataset.screen); };
