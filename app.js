@@ -1091,11 +1091,21 @@ function renderWeek() {
 }
 
 function exSetCount(e) { return Array.isArray(e.sets) ? e.sets.length : (+e.sets || 0); }
+// short summary for an exercise: "3×" for sets, or "3×45s" when it's a timed hold
+function exSummary(e) {
+  const n = exSetCount(e);
+  const secs = (e.sets || []).map((s) => +s.seconds || 0).filter(Boolean);
+  if (secs.length) {
+    const avg = Math.round(secs.reduce((a, b) => a + b, 0) / secs.length);
+    return `${e.name} ${n}×${avg}s`;
+  }
+  return `${e.name}${n ? ` ${n}×` : ""}`;
+}
 
 function workoutItem(w, mini) {
   const exCount = w.exercises?.length || 0;
   const sub = exCount
-    ? w.exercises.map((e) => `${e.name}${exSetCount(e) ? ` ${exSetCount(e)}×` : ""}`).filter(Boolean).join(", ")
+    ? w.exercises.map((e) => exSummary(e)).filter(Boolean).join(", ")
     : "No exercises";
   // 🏆 when this workout holds the all-time best for one of its exercises
   const isPB = (w.exercises || []).some((e) => {
@@ -1638,12 +1648,14 @@ function setRow(set = {}, n = 1) {
       <input class="s-reps" type="number" inputmode="numeric" placeholder="reps" value="${set.reps ?? ""}">
       <span class="set-x">×</span>
       <input class="s-kg" type="number" inputmode="decimal" placeholder="kg" title="Total weight lifted — barbell: full bar load; dumbbells: one dumbbell" value="${set.weight ?? ""}">
+      <input class="s-sec" type="number" inputmode="numeric" placeholder="sec" title="Hold time in seconds — for plank, wall sit, etc." value="${set.seconds ?? ""}">
       <button class="set-del" type="button" aria-label="Remove set">✕</button>
     </div>`);
   row.querySelector(".set-del").onclick = () => { const list = row.parentElement; row.remove(); renumberSets(list); recalcWorkoutBurn(); };
-  // editing reps or weight should refresh the calorie estimate too
+  // editing reps, weight or hold-time should refresh the calorie estimate too
   row.querySelector(".s-reps").addEventListener("input", recalcWorkoutBurn);
   row.querySelector(".s-kg").addEventListener("input", recalcWorkoutBurn);
+  row.querySelector(".s-sec").addEventListener("input", recalcWorkoutBurn);
   return row;
 }
 function exerciseBlock(ex = {}) {
@@ -1663,7 +1675,7 @@ function exerciseBlock(ex = {}) {
     const rows = list.querySelectorAll(".set-row");
     const last = rows[rows.length - 1];
     // copy the last set so repeated sets need no typing
-    const prev = last ? { reps: last.querySelector(".s-reps").value, weight: last.querySelector(".s-kg").value } : {};
+    const prev = last ? { reps: last.querySelector(".s-reps").value, weight: last.querySelector(".s-kg").value, seconds: last.querySelector(".s-sec").value } : {};
     list.appendChild(setRow(prev, rows.length + 1));
     recalcWorkoutBurn();
   };
@@ -1679,17 +1691,22 @@ let workoutBurnTouched = false;
 function recalcWorkoutBurn() {
   if (workoutBurnTouched) return;
   const bw = +DATA.goals.weight || latestWeight() || +DATA.goals.startWeight || 75;
-  let est = 0;
+  let est = 0, sets = 0;
   $("#exercise-editor").querySelectorAll(".set-row").forEach((r) => {
     const reps = +r.querySelector(".s-reps").value || 0;
     const weight = +r.querySelector(".s-kg").value || 0;
-    est += 5 * (bw / 75) + (reps * weight) / 200;
+    const sec = +r.querySelector(".s-sec").value || 0;
+    if (!reps && !weight && !sec) return;       // ignore blank rows
+    sets++;
+    est += 6 * (bw / 75);                        // base effort per set (bodyweight work still counts)
+    est += (reps * weight) / 200;                // heavier sets burn more
+    est += (sec * 4 * 3.5 * bw / 200) / 60;      // isometric holds (~4 MET) — plank, wall sit
   });
   est = Math.round(est);
   $("#w-burned").value = est || "";
   $("#w-burn-hint").textContent = est
-    ? `≈ ${est} kcal (factors in your reps × weight — edit if you like)`
-    : "Add sets and a calorie estimate appears here.";
+    ? `≈ ${est} kcal from ${sets} set${sets === 1 ? "" : "s"} (rough — edit if you like)`
+    : "Add sets (reps×kg or a hold in seconds) and an estimate appears here.";
 }
 function setGymType(t) {
   gymType = t;
@@ -1732,7 +1749,8 @@ $("#save-workout").onclick = () => {
     const sets = [...block.querySelectorAll(".set-row")].map((r) => ({
       reps: r.querySelector(".s-reps").value ? +r.querySelector(".s-reps").value : null,
       weight: r.querySelector(".s-kg").value ? +r.querySelector(".s-kg").value : null,
-    })).filter((s) => s.reps != null || s.weight != null);
+      seconds: r.querySelector(".s-sec").value ? +r.querySelector(".s-sec").value : null,
+    })).filter((s) => s.reps != null || s.weight != null || s.seconds != null);
     return { name, sets };
   }).filter((e) => e.name);
   const fields = {
