@@ -1614,8 +1614,8 @@ const TITLES = { dashboard: "Today", workouts: "Workouts", nutrition: "Nutrition
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.add("hidden"));
   $("#screen-" + name).classList.remove("hidden");
-  // Spend & Trips live under the "More" tab, so keep More highlighted for them
-  const tabName = (name === "expenses" || name === "trips") ? "more" : name;
+  // Progress, Goals & Trips live under the "More" tab, so keep More highlighted for them
+  const tabName = (name === "progress" || name === "profile" || name === "trips") ? "more" : name;
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.screen === tabName));
   $("#screen-title").textContent = TITLES[name];
   // date switcher only relevant for day-based screens
