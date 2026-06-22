@@ -9,13 +9,14 @@ const DEFAULT_DATA = {
   goals: {
     calories: 1800, protein: 120, carbs: 180, fat: 60, weight: 75,
     startWeight: 75, targetWeight: 65, weeklyRate: 0.5, startDate: "",
-    cardioGoal: 175, stepsGoal: 9000, strengthGoal: 3, stepKcalPer1000: 39,
+    cardioGoal: 175, stepsGoal: 9000, strengthGoal: 3, stepKcalPer1000: 39, waterGoal: 2500,
   },
   days: {},     // { "2026-06-01": { workouts: [], meals: [], cardio: [] } }
   weights: [],  // [{ date: "2026-06-01", kg: 75 }]
   expenses: [], // [{ id, date: "2026-06-01", amount, category, sub, note }]
   trips: [],    // [{ id, name, startDate, endDate, note, items: [{ id, date, amount, category, note }] }]
   customFoods: [], // foods the user typed that weren't in the list: [{ n, unit, base, cal, p, c, f }]
+  favorites: [],   // pinned foods for quick logging: [{ n, unit, base, cal, p, c, f }]
   currency: "₹",
 };
 
@@ -689,6 +690,7 @@ function load() {
              expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
              trips: Array.isArray(parsed.trips) ? parsed.trips : [],
              customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods : [],
+             favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [],
              currency: parsed.currency || "₹" };
   } catch { return structuredClone(DEFAULT_DATA); }
 }
@@ -710,6 +712,7 @@ function dayData() {
   const dd = DATA.days[k];
   if (!dd.cardio) dd.cardio = [];
   if (!dd.activity) dd.activity = [];
+  if (dd.water == null) dd.water = 0;
   return dd;
 }
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -961,6 +964,8 @@ function renderDashboard() {
     } else sc.classList.add("hidden");
   }
 
+  renderWaterCard();
+
   renderWeek();
 
   // motivational logging streak (only once it's worth showing)
@@ -1031,6 +1036,41 @@ function renderRecentDays() {
   // shown on Workouts & Food (to add details to past days), not on the home page
   fillRecentDays($("#wo-recent"));
   fillRecentDays($("#nut-recent"));
+}
+
+// water card: tap +250/−250, or type the exact total you drank
+function renderWaterCard() {
+  const wc = $("#water-card"); if (!wc) return;
+  const goal = +DATA.goals.waterGoal || 0;
+  const water = +dayData().water || 0;
+  const glasses = Math.round(water / 250);
+  const pct = goal > 0 ? Math.min((water / goal) * 100, 100) : 0;
+  wc.innerHTML = `
+    <div class="water-head">
+      <span class="water-ico">💧</span>
+      <input type="number" id="water-input" class="water-input" inputmode="numeric" value="${water}">
+      <span class="water-unit">ml</span>
+      <button class="water-btn" id="water-minus" type="button" aria-label="Remove a glass">−</button>
+      <button class="water-btn add" id="water-plus" type="button">+250</button>
+    </div>
+    <div class="water-bar"><span style="width:${pct}%"></span></div>
+    <div class="water-sub muted">${goal ? `${water.toLocaleString()} / ${goal.toLocaleString()} ml` : `${water.toLocaleString()} ml`} · ${glasses} glass${glasses === 1 ? "" : "es"}</div>`;
+  const input = $("#water-input");
+  const set = (val, syncInput) => { dayData().water = Math.max(0, Math.round(val) || 0); save(); refreshWaterUI(syncInput); };
+  input.addEventListener("input", () => set(+input.value || 0, false));  // type exact amount
+  $("#water-plus").onclick = () => { set((+dayData().water || 0) + 250, true); haptic(); };
+  $("#water-minus").onclick = () => { set((+dayData().water || 0) - 250, true); haptic(); };
+}
+// refresh only the bar + label (and optionally the input) so typing isn't interrupted
+function refreshWaterUI(syncInput) {
+  const goal = +DATA.goals.waterGoal || 0;
+  const water = +dayData().water || 0;
+  const glasses = Math.round(water / 250);
+  const pct = goal > 0 ? Math.min((water / goal) * 100, 100) : 0;
+  const bar = document.querySelector("#water-card .water-bar span"); if (bar) bar.style.width = pct + "%";
+  const sub = document.querySelector("#water-card .water-sub");
+  if (sub) sub.textContent = `${goal ? `${water.toLocaleString()} / ${goal.toLocaleString()} ml` : `${water.toLocaleString()} ml`} · ${glasses} glass${glasses === 1 ? "" : "es"}`;
+  const input = $("#water-input"); if (syncInput && input) input.value = water;
 }
 
 function renderTraining(wrap, d, mini) {
@@ -1403,8 +1443,19 @@ function renderNutrition() {
       b.onclick = copyYesterdayMeals;
       wrap.appendChild(b);
     }
+    return;
   }
-  d.meals.forEach((m) => wrap.appendChild(mealItem(m, false)));
+  // group entries by meal type, each with its own calorie subtotal
+  const order = ["Breakfast", "Lunch", "Dinner", "Snack"];
+  const groups = {};
+  d.meals.forEach((m) => { const t = m.type || "Other"; (groups[t] = groups[t] || []).push(m); });
+  const sections = [...order.filter((t) => groups[t]), ...Object.keys(groups).filter((t) => !order.includes(t))];
+  sections.forEach((t) => {
+    const items = groups[t];
+    const sub = items.reduce((s, m) => s + (+m.calories || 0), 0);
+    wrap.appendChild(el(`<div class="meal-group-head"><b>${escapeHtml(t)}</b><span>${Math.round(sub)} kcal</span></div>`));
+    items.forEach((m) => wrap.appendChild(mealItem(m, false)));
+  });
 }
 
 /* ============================================================
@@ -1544,6 +1595,7 @@ function renderProfile() {
   $("#p-cardio-goal").value = g.cardioGoal ?? "";
   $("#p-steps-goal").value = g.stepsGoal ?? "";
   $("#p-step-kcal").value = g.stepKcalPer1000 ?? 39;
+  $("#p-water-goal").value = g.waterGoal ?? 2500;
   $("#p-strength-goal").value = g.strengthGoal ?? "";
   updatePlanReadout();
   if (typeof refreshSyncUI === "function") refreshSyncUI();
@@ -1875,10 +1927,12 @@ $("#add-meal-btn").onclick = () => {
   ["#f-name", "#f-cal", "#f-protein", "#f-carbs", "#f-fat", "#f-search", "#f-qty"].forEach((s) => ($(s).value = ""));
   selectedFood = null;
   $("#f-results").innerHTML = "";
-  $("#f-qty-wrap").classList.add("hidden");  $("#meal-modal-title").textContent = "Log Food";
+  $("#f-qty-wrap").classList.add("hidden"); $("#f-portions").classList.add("hidden");
+  $("#meal-modal-title").textContent = "Log Food";
   mealType = guessMealType();
   $("#meal-type-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.type === mealType));
   renderRecentFoods();
+  renderFavorites();
   openModal("#meal-modal");
   setTimeout(() => $("#f-search").focus(), 100);
 };
@@ -1898,6 +1952,9 @@ function openMealEdit(m) {
   $("#meal-modal-title").textContent = "Edit Food";
   $("#f-recent").classList.add("hidden");
   $("#f-recent-label").classList.add("hidden");
+  $("#f-favorites").classList.add("hidden");
+  $("#f-favorites-label").classList.add("hidden");
+  $("#f-portions").classList.add("hidden");
   openModal("#meal-modal");
 }
 
@@ -1946,6 +2003,32 @@ function renderRecentFoods() {
   });
 }
 
+/* ---------- favorites (pinned foods) ---------- */
+function isFavorite(name) { return (DATA.favorites || []).some((f) => f.n.toLowerCase() === (name || "").toLowerCase()); }
+function toggleFavorite(food) {
+  if (!Array.isArray(DATA.favorites)) DATA.favorites = [];
+  const i = DATA.favorites.findIndex((f) => f.n.toLowerCase() === food.n.toLowerCase());
+  if (i >= 0) DATA.favorites.splice(i, 1);
+  else DATA.favorites.push({ n: food.n, unit: food.unit, base: food.base, cal: food.cal, p: food.p, c: food.c, f: food.f });
+  save(); haptic();
+  const q = $("#f-search").value;
+  if (q.trim()) searchFoods(q); else renderFavorites();   // refresh stars / chips
+}
+function renderFavorites() {
+  const wrap = $("#f-favorites"), label = $("#f-favorites-label");
+  if (!wrap) return;
+  const items = DATA.favorites || [];
+  wrap.innerHTML = "";
+  const show = items.length > 0;
+  wrap.classList.toggle("hidden", !show);
+  if (label) label.classList.toggle("hidden", !show);
+  items.forEach((f) => {
+    const b = el(`<button type="button" class="chip-recent">★ ${escapeHtml(f.n)} <small>${Math.round(f.cal)}</small></button>`);
+    b.onclick = () => selectFood(f);
+    wrap.appendChild(b);
+  });
+}
+
 /* ---------- food search + auto-calc ---------- */
 let selectedFood = null;
 
@@ -1959,12 +2042,16 @@ function renderFoodResults(list, { online = false, append = false } = {}) {
   if (!list.length) return;
   list.forEach((f) => {
     const per = f.unit === "g" || f.unit === "ml" ? `per 100${f.unit}` : `per ${f.unit}`;
+    const fav = isFavorite(f.n);
+    const tag = online ? ` <span class="fo-tag">online</span>` : f.custom ? ` <span class="fo-tag mine">saved</span>` : "";
     const row = el(`
-      <button class="food-opt" type="button">
-        <span class="fo-name">${escapeHtml(f.n)}${online ? ` <span class="fo-tag">online</span>` : f.custom ? ` <span class="fo-tag mine">saved</span>` : ""}</span>
+      <div class="food-opt">
+        <span class="fo-name">${escapeHtml(f.n)}${tag}</span>
         <span class="fo-kcal">${Math.round(f.cal)} kcal <small>${per}</small></span>
-      </button>`);
-    row.onclick = () => selectFood(f);
+        <button class="fo-star${fav ? " on" : ""}" type="button" aria-label="Toggle favorite">${fav ? "★" : "☆"}</button>
+      </div>`);
+    row.onclick = (e) => { if (e.target.closest(".fo-star")) return; selectFood(f); };
+    row.querySelector(".fo-star").onclick = (e) => { e.stopPropagation(); toggleFavorite(f); };
     wrap.appendChild(row);
   });
 }
@@ -1982,7 +2069,9 @@ function searchFoods(q) {
   // your saved foods first, then the built-in list
   const mine = (DATA.customFoods || []).filter((f) => foodMatches(f.n, words));
   const builtin = FOODS.filter((f) => foodMatches(f.n, words));
-  renderFoodResults([...mine, ...builtin].slice(0, 16));
+  const all = [...mine, ...builtin];
+  all.sort((a, b) => (isFavorite(b.n) ? 1 : 0) - (isFavorite(a.n) ? 1 : 0)); // ⭐ favorites first
+  renderFoodResults(all.slice(0, 16));
   if (query.length >= 3) searchOnlineFoods(q.trim());
 }
 
@@ -2032,6 +2121,9 @@ function selectFood(f) {
   $("#f-qty").value = f.unit === "g" || f.unit === "ml" ? 100 : 1;
   $("#f-unit").textContent = foodQtyLabel(f);
   $("#f-qty-wrap").classList.remove("hidden");
+  // portion quick-buttons (½ · 1 · 1.5 · 2 · 3), with "1" selected
+  $("#f-portions").classList.remove("hidden");
+  $("#f-portions").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.f === "1"));
   $("#f-search").value = "";
   $("#f-results").innerHTML = "";  recalcFood();
 }
@@ -2052,11 +2144,25 @@ $("#f-search").addEventListener("input", (e) => {
   const v = e.target.value;
   searchTimer = setTimeout(() => searchFoods(v), 120);
 });
-$("#f-qty").addEventListener("input", recalcFood);
+$("#f-qty").addEventListener("input", () => {
+  recalcFood();
+  $("#f-portions").querySelectorAll("button").forEach((x) => x.classList.remove("on")); // custom qty → no chip selected
+});
+// portion quick-buttons set the quantity (½/1/1.5/2/3 of a serving)
+$("#f-portions").querySelectorAll("button").forEach((b) => {
+  b.onclick = () => {
+    if (!selectedFood) return;
+    const baseQty = selectedFood.base || 1;
+    $("#f-qty").value = +(baseQty * (+b.dataset.f || 1)).toFixed(2);
+    recalcFood();
+    $("#f-portions").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+  };
+});
 // typing your own food name = manual entry, drop the picked food
 $("#f-name").addEventListener("input", () => {
   selectedFood = null;
   $("#f-qty-wrap").classList.add("hidden");
+  $("#f-portions").classList.add("hidden");
 });
 
 function collectMealFields() {
@@ -2614,6 +2720,7 @@ $("#save-profile-btn").onclick = () => {
   g.cardioGoal = +$("#p-cardio-goal").value || 0;
   g.stepsGoal = +$("#p-steps-goal").value || 0;
   g.stepKcalPer1000 = +$("#p-step-kcal").value || 39;
+  g.waterGoal = +$("#p-water-goal").value || 0;
   g.strengthGoal = +$("#p-strength-goal").value || 0;
   // current weight: keep weight-log in sync if edited here
   const cur = $("#p-weight").value ? +$("#p-weight").value : null;

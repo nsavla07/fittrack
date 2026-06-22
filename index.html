@@ -56,6 +56,8 @@
 
         <div class="card steps-card hidden" id="steps-card"></div>
 
+        <div class="card water-card" id="water-card"></div>
+
         <div class="card week-card" id="week-card"></div>
 
         <h2 class="section-h">Today's Activity</h2>
@@ -154,6 +156,7 @@
           <label class="field"><span>Cardio minutes / week</span><input type="number" id="p-cardio-goal" inputmode="numeric" /></label>
           <label class="field"><span>Steps / day</span><input type="number" id="p-steps-goal" inputmode="numeric" /></label>
           <label class="field"><span>kcal per 1,000 steps (match your fitness app)</span><input type="number" id="p-step-kcal" inputmode="numeric" /></label>
+          <label class="field"><span>Water goal (ml / day)</span><input type="number" id="p-water-goal" inputmode="numeric" /></label>
           <label class="field"><span>Strength sessions / week</span><input type="number" id="p-strength-goal" inputmode="numeric" /></label>
         </div>
 
@@ -258,6 +261,8 @@
           <button data-type="Dinner">Dinner</button>
           <button data-type="Snack">Snack</button>
         </div>
+        <span class="seg-label hidden" id="f-favorites-label">⭐ Favorites</span>
+        <div id="f-favorites" class="chips recent-chips hidden"></div>
         <span class="seg-label" id="f-recent-label">Recent</span>
         <div id="f-recent" class="chips recent-chips"></div>
         <label class="field"><span>Search food (auto-fills calories)</span><input type="text" id="f-search" placeholder="e.g. chicken, banana, rice" autocomplete="off" /></label>
@@ -265,6 +270,13 @@
         <div id="f-qty-wrap" class="qty-row hidden">
           <label class="field"><span>Quantity</span><input type="number" id="f-qty" inputmode="decimal" /></label>
           <span class="qty-unit" id="f-unit"></span>
+        </div>
+        <div id="f-portions" class="chips portion-chips hidden">
+          <button type="button" data-f="0.5">½</button>
+          <button type="button" data-f="1">1</button>
+          <button type="button" data-f="1.5">1.5</button>
+          <button type="button" data-f="2">2</button>
+          <button type="button" data-f="3">3</button>
         </div>
         <label class="field"><span>Food</span><input type="text" id="f-name" placeholder="e.g. Chicken & rice" /></label>
         <label class="field"><span>Calories (kcal)</span><input type="number" id="f-cal" inputmode="numeric" placeholder="0" /></label>

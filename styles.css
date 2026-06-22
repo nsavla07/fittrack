@@ -60,6 +60,12 @@ body {
 .clabels { display: flex; gap: 8px; margin-top: 6px; }
 .clabels span { flex: 1; text-align: center; font-size: 11px; color: var(--muted); }
 
+/* meal-type group headers on the Food screen */
+.meal-group-head { display: flex; align-items: baseline; justify-content: space-between; margin: 16px 4px 8px; }
+.meal-group-head b { font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text); }
+.meal-group-head span { font-size: 13px; color: var(--muted); font-weight: 600; }
+.meal-group-head:first-child { margin-top: 4px; }
+
 /* per-meal macro mini bar */
 .macro-mini { display: flex; gap: 2px; height: 4px; border-radius: 3px; overflow: hidden; margin-top: 7px; max-width: 170px; }
 .macro-mini span { display: block; height: 100%; }
@@ -325,7 +331,10 @@ body {
   border-radius: 12px; padding: 12px 14px; cursor: pointer; font: inherit; width: 100%;
 }
 .food-opt:active { border-color: var(--accent); }
-.fo-name { font-size: 14px; font-weight: 600; }
+.fo-name { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+.fo-star { background: none; border: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+.fo-star.on { color: var(--carbs); }
+.portion-chips { margin-top: -2px; margin-bottom: 12px; }
 .fo-tag { font-size: 10px; color: var(--accent-2); border: 1px solid var(--accent-2); border-radius: 20px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
 .fo-tag.mine { color: var(--steps); border-color: var(--steps); }
 .fo-kcal { font-size: 13px; color: var(--accent-2); white-space: nowrap; font-weight: 700; }
@@ -384,6 +393,19 @@ body {
 .pb-row:last-child { border-bottom: none; }
 .pb-name { font-size: 14px; }
 .pb-val { font-size: 14px; font-weight: 700; color: var(--accent-2); }
+
+/* ---------- water card ---------- */
+.water-head { display: flex; align-items: center; gap: 10px; }
+.water-ico { font-size: 20px; }
+.water-input { width: 78px; background: var(--surface-2); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 8px 10px; font-size: 18px; font-weight: 800; outline: none; text-align: center; }
+.water-input:focus { border-color: var(--fat); }
+.water-unit { color: var(--muted); font-size: 13px; margin-right: auto; }
+.water-btn { background: var(--surface-2); border: 1px solid var(--line); color: var(--text); border-radius: 10px; min-width: 40px; height: 38px; font-size: 16px; font-weight: 700; cursor: pointer; padding: 0 12px; }
+.water-btn.add { color: var(--fat); border-color: var(--fat); }
+.water-btn:active { background: var(--surface); }
+.water-bar { height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
+.water-bar span { display: block; height: 100%; background: var(--fat); border-radius: 4px; transition: width .4s ease; }
+.water-sub { font-size: 12px; margin-top: 8px; }
 
 /* ---------- streak banner ---------- */
 .streak-banner {
