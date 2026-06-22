@@ -9,7 +9,7 @@ const DEFAULT_DATA = {
   goals: {
     calories: 1800, protein: 120, carbs: 180, fat: 60, weight: 75,
     startWeight: 75, targetWeight: 65, weeklyRate: 0.5, startDate: "",
-    cardioGoal: 175, stepsGoal: 9000, strengthGoal: 3, stepKcalPer1000: 39, waterGoal: 2500,
+    cardioGoal: 175, stepsGoal: 9000, strengthGoal: 3, stepKcalPer1000: 39, waterGoal: 3000,
   },
   days: {},     // { "2026-06-01": { workouts: [], meals: [], cardio: [] } }
   weights: [],  // [{ date: "2026-06-01", kg: 75 }]
@@ -1595,7 +1595,8 @@ function renderProfile() {
   $("#p-cardio-goal").value = g.cardioGoal ?? "";
   $("#p-steps-goal").value = g.stepsGoal ?? "";
   $("#p-step-kcal").value = g.stepKcalPer1000 ?? 39;
-  $("#p-water-goal").value = g.waterGoal ?? 2500;
+  $("#p-water-goal").value = g.waterGoal ?? 3000;
+  $("#p-water-chips").querySelectorAll("button").forEach((x) => x.classList.toggle("on", +x.dataset.ml === (+g.waterGoal || 0)));
   $("#p-strength-goal").value = g.strengthGoal ?? "";
   updatePlanReadout();
   if (typeof refreshSyncUI === "function") refreshSyncUI();
@@ -2701,6 +2702,13 @@ $("#save-weight").onclick = () => {
 ============================================================ */
 ["#p-start", "#p-weight", "#p-target", "#p-rate", "#p-startdate"].forEach((s) => {
   $(s).addEventListener("input", updatePlanReadout);
+});
+// quick water-goal picker (2.5–4 L)
+$("#p-water-chips").querySelectorAll("button").forEach((b) => {
+  b.onclick = () => {
+    $("#p-water-goal").value = b.dataset.ml;
+    $("#p-water-chips").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+  };
 });
 $("#suggest-cal-btn").onclick = () => {
   const kg = +$("#p-weight").value || +$("#p-start").value || 0;
