@@ -1869,12 +1869,19 @@ function renderFoodResults(list, { online = false, append = false } = {}) {
   });
 }
 
+// every word in the query must appear in the name (any order), so
+// "lemon ice tea" still finds "Lemon iced tea"
+function foodMatches(name, words) {
+  const n = name.toLowerCase();
+  return words.every((w) => n.includes(w));
+}
 function searchFoods(q) {
   const query = q.trim().toLowerCase();
   if (!query) { $("#f-results").innerHTML = ""; return; }
+  const words = query.split(/\s+/).filter(Boolean);
   // your saved foods first, then the built-in list
-  const mine = (DATA.customFoods || []).filter((f) => f.n.toLowerCase().includes(query));
-  const builtin = FOODS.filter((f) => f.n.toLowerCase().includes(query));
+  const mine = (DATA.customFoods || []).filter((f) => foodMatches(f.n, words));
+  const builtin = FOODS.filter((f) => foodMatches(f.n, words));
   renderFoodResults([...mine, ...builtin].slice(0, 16));
   if (query.length >= 3) searchOnlineFoods(q.trim());
 }
