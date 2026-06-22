@@ -684,7 +684,7 @@ function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return structuredClone(DEFAULT_DATA);
     const parsed = JSON.parse(raw);
-    return { ...structuredClone(DEFAULT_DATA), ...parsed,
+    const data = { ...structuredClone(DEFAULT_DATA), ...parsed,
              goals: { ...DEFAULT_DATA.goals, ...(parsed.goals || {}) },
              weights: Array.isArray(parsed.weights) ? parsed.weights : [],
              expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
@@ -692,7 +692,13 @@ function load() {
              customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods : [],
              favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [],
              currency: parsed.currency || "₹" };
+    migrateGoals(data.goals);
+    return data;
   } catch { return structuredClone(DEFAULT_DATA); }
+}
+// one-time tidy-ups for older saved data
+function migrateGoals(g) {
+  if (g && g.waterGoal === 2500) g.waterGoal = 3000; // bump the old 2.5 L default to 3 L
 }
 function save() {
   localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
@@ -1596,7 +1602,6 @@ function renderProfile() {
   $("#p-steps-goal").value = g.stepsGoal ?? "";
   $("#p-step-kcal").value = g.stepKcalPer1000 ?? 39;
   $("#p-water-goal").value = g.waterGoal ?? 3000;
-  $("#p-water-chips").querySelectorAll("button").forEach((x) => x.classList.toggle("on", +x.dataset.ml === (+g.waterGoal || 0)));
   $("#p-strength-goal").value = g.strengthGoal ?? "";
   updatePlanReadout();
   if (typeof refreshSyncUI === "function") refreshSyncUI();
@@ -2703,13 +2708,6 @@ $("#save-weight").onclick = () => {
 ["#p-start", "#p-weight", "#p-target", "#p-rate", "#p-startdate"].forEach((s) => {
   $(s).addEventListener("input", updatePlanReadout);
 });
-// quick water-goal picker (2.5–4 L)
-$("#p-water-chips").querySelectorAll("button").forEach((b) => {
-  b.onclick = () => {
-    $("#p-water-goal").value = b.dataset.ml;
-    $("#p-water-chips").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-  };
-});
 $("#suggest-cal-btn").onclick = () => {
   const kg = +$("#p-weight").value || +$("#p-start").value || 0;
   const rate = +$("#p-rate").value || 0.5;
@@ -2848,6 +2846,7 @@ async function pullFromCloud() {
         expenses: Array.isArray(r.expenses) ? r.expenses : [],
         trips: Array.isArray(r.trips) ? r.trips : [],
         currency: r.currency || "₹" };
+      migrateGoals(DATA.goals);
       localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
       setLocalModified(data.updated_at);
       renderAll(); if (!$("#screen-profile").classList.contains("hidden")) renderProfile();
