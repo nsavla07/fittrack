@@ -304,6 +304,7 @@ body {
 .food-opt:active { border-color: var(--accent); }
 .fo-name { font-size: 14px; font-weight: 600; }
 .fo-tag { font-size: 10px; color: var(--accent-2); border: 1px solid var(--accent-2); border-radius: 20px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+.fo-tag.mine { color: var(--steps); border-color: var(--steps); }
 .fo-kcal { font-size: 13px; color: var(--accent-2); white-space: nowrap; font-weight: 700; }
 .fo-kcal small { color: var(--muted); font-weight: 400; }
 #f-online { margin-top: 0; margin-bottom: 12px; }

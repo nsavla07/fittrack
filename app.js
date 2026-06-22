@@ -15,6 +15,7 @@ const DEFAULT_DATA = {
   weights: [],  // [{ date: "2026-06-01", kg: 75 }]
   expenses: [], // [{ id, date: "2026-06-01", amount, category, sub, note }]
   trips: [],    // [{ id, name, startDate, endDate, note, items: [{ id, date, amount, category, note }] }]
+  customFoods: [], // foods the user typed that weren't in the list: [{ n, unit, base, cal, p, c, f }]
   currency: "₹",
 };
 
@@ -536,6 +537,8 @@ const FOODS = [
   { n: "Masala fries", unit: "serving", base: 1, cal: 420, p: 5, c: 52, f: 21 },
   { n: "Loaded cheese fries", unit: "serving", base: 1, cal: 560, p: 14, c: 50, f: 34 },
   { n: "Bruschetta (veg)", unit: "plate (2)", base: 1, cal: 260, p: 7, c: 34, f: 10 },
+  { n: "Jalapeño poppers (plate 6)", unit: "plate (6)", base: 1, cal: 420, p: 9, c: 38, f: 26 },
+  { n: "Jalapeño popper (piece)", unit: "piece", base: 1, cal: 70, p: 1.5, c: 6, f: 4.3 },
   { n: "Penne Alla Vodka", unit: "plate", base: 1, cal: 520, p: 15, c: 64, f: 22 },
   { n: "Spaghetti Aglio e Olio", unit: "plate", base: 1, cal: 420, p: 11, c: 60, f: 15 },
   { n: "Mac & cheese", unit: "bowl", base: 1, cal: 500, p: 18, c: 50, f: 25 },
@@ -625,6 +628,7 @@ function load() {
              weights: Array.isArray(parsed.weights) ? parsed.weights : [],
              expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
              trips: Array.isArray(parsed.trips) ? parsed.trips : [],
+             customFoods: Array.isArray(parsed.customFoods) ? parsed.customFoods : [],
              currency: parsed.currency || "₹" };
   } catch { return structuredClone(DEFAULT_DATA); }
 }
@@ -1816,7 +1820,7 @@ function renderFoodResults(list, { online = false, append = false } = {}) {
     const per = f.unit === "g" || f.unit === "ml" ? `per 100${f.unit}` : `per ${f.unit}`;
     const row = el(`
       <button class="food-opt" type="button">
-        <span class="fo-name">${escapeHtml(f.n)}${online ? ` <span class="fo-tag">online</span>` : ""}</span>
+        <span class="fo-name">${escapeHtml(f.n)}${online ? ` <span class="fo-tag">online</span>` : f.custom ? ` <span class="fo-tag mine">saved</span>` : ""}</span>
         <span class="fo-kcal">${Math.round(f.cal)} kcal <small>${per}</small></span>
       </button>`);
     row.onclick = () => selectFood(f);
@@ -1827,8 +1831,10 @@ function renderFoodResults(list, { online = false, append = false } = {}) {
 function searchFoods(q) {
   const query = q.trim().toLowerCase();
   if (!query) { $("#f-results").innerHTML = ""; return; }
-  const matches = FOODS.filter((f) => f.n.toLowerCase().includes(query)).slice(0, 14);
-  renderFoodResults(matches);
+  // your saved foods first, then the built-in list
+  const mine = (DATA.customFoods || []).filter((f) => f.n.toLowerCase().includes(query));
+  const builtin = FOODS.filter((f) => f.n.toLowerCase().includes(query));
+  renderFoodResults([...mine, ...builtin].slice(0, 16));
   if (query.length >= 3) searchOnlineFoods(q.trim());
 }
 
@@ -1923,6 +1929,23 @@ function collectMealFields() {
 function mealFormEmpty() {
   return !$("#f-name").value.trim() && !(+$("#f-cal").value);
 }
+// remember a manually-typed food so it shows up in search next time
+function rememberCustomFood() {
+  if (selectedFood) return;                       // chosen from the list, already known
+  const name = $("#f-name").value.trim();
+  const cal = +$("#f-cal").value || 0;
+  if (!name || !cal) return;
+  const lc = name.toLowerCase();
+  if (FOODS.some((f) => f.n.toLowerCase() === lc)) return;   // already a built-in food
+  if (!Array.isArray(DATA.customFoods)) DATA.customFoods = [];
+  const food = {
+    n: name, unit: "serving", base: 1, cal,
+    p: +$("#f-protein").value || 0, c: +$("#f-carbs").value || 0, f: +$("#f-fat").value || 0,
+    custom: true,
+  };
+  const i = DATA.customFoods.findIndex((f) => f.n.toLowerCase() === lc);
+  if (i >= 0) DATA.customFoods[i] = food; else DATA.customFoods.push(food);
+}
 // clear the form to log the next item, keeping the meal type and modal open
 function resetMealForm() {
   editingMealId = null;
@@ -1933,6 +1956,7 @@ function resetMealForm() {
 }
 
 $("#save-meal").onclick = () => {
+  rememberCustomFood();
   const fields = collectMealFields();
   const meals = dayData().meals;
   if (editingMealId) {
@@ -1950,6 +1974,7 @@ $("#save-meal").onclick = () => {
 // save current item and keep the sheet open to add the next one
 $("#add-another-meal").onclick = () => {
   if (mealFormEmpty()) { $("#f-search").focus(); return; }
+  rememberCustomFood();
   dayData().meals.push({ id: uid(), ...collectMealFields() });
   save(); renderAll();
   resetMealForm();
