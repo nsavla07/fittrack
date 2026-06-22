@@ -1932,13 +1932,12 @@ $("#add-meal-btn").onclick = () => {
   editingMealId = null;
   ["#f-name", "#f-cal", "#f-protein", "#f-carbs", "#f-fat", "#f-search", "#f-qty"].forEach((s) => ($(s).value = ""));
   selectedFood = null;
-  $("#f-results").innerHTML = "";
   $("#f-qty-wrap").classList.add("hidden"); $("#f-portions").classList.add("hidden");
   $("#meal-modal-title").textContent = "Log Food";
   mealType = guessMealType();
   $("#meal-type-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x.dataset.type === mealType));
   renderRecentFoods();
-  renderFavorites();
+  showDefaultFoodList();   // show favorites as a pick-list
   openModal("#meal-modal");
   setTimeout(() => $("#f-search").focus(), 100);
 };
@@ -1958,8 +1957,6 @@ function openMealEdit(m) {
   $("#meal-modal-title").textContent = "Edit Food";
   $("#f-recent").classList.add("hidden");
   $("#f-recent-label").classList.add("hidden");
-  $("#f-favorites").classList.add("hidden");
-  $("#f-favorites-label").classList.add("hidden");
   $("#f-portions").classList.add("hidden");
   openModal("#meal-modal");
 }
@@ -2018,21 +2015,17 @@ function toggleFavorite(food) {
   else DATA.favorites.push({ n: food.n, unit: food.unit, base: food.base, cal: food.cal, p: food.p, c: food.c, f: food.f });
   save(); haptic();
   const q = $("#f-search").value;
-  if (q.trim()) searchFoods(q); else renderFavorites();   // refresh stars / chips
+  if (q.trim()) searchFoods(q); else showDefaultFoodList();   // refresh stars / list
 }
-function renderFavorites() {
-  const wrap = $("#f-favorites"), label = $("#f-favorites-label");
+// when the search box is empty, show favorites as a selectable list to pick from
+function showDefaultFoodList() {
+  const wrap = $("#f-results");
   if (!wrap) return;
-  const items = DATA.favorites || [];
   wrap.innerHTML = "";
-  const show = items.length > 0;
-  wrap.classList.toggle("hidden", !show);
-  if (label) label.classList.toggle("hidden", !show);
-  items.forEach((f) => {
-    const b = el(`<button type="button" class="chip-recent">★ ${escapeHtml(f.n)} <small>${Math.round(f.cal)}</small></button>`);
-    b.onclick = () => selectFood(f);
-    wrap.appendChild(b);
-  });
+  const favs = DATA.favorites || [];
+  if (!favs.length) return;
+  wrap.appendChild(el(`<div class="food-list-head">⭐ Favorites</div>`));
+  renderFoodResults(favs, { append: true });
 }
 
 /* ---------- food search + auto-calc ---------- */
@@ -2070,7 +2063,7 @@ function foodMatches(name, words) {
 }
 function searchFoods(q) {
   const query = q.trim().toLowerCase();
-  if (!query) { $("#f-results").innerHTML = ""; return; }
+  if (!query) { showDefaultFoodList(); return; }
   const words = query.split(/\s+/).filter(Boolean);
   // your saved foods first, then the built-in list
   const mine = (DATA.customFoods || []).filter((f) => foodMatches(f.n, words));
