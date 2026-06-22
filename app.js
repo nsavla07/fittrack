@@ -1652,10 +1652,12 @@ function setRow(set = {}, n = 1) {
   const row = el(`
     <div class="set-row">
       <span class="set-n">${n}</span>
-      <input class="s-reps" type="number" inputmode="numeric" placeholder="reps" value="${set.reps ?? ""}">
-      <span class="set-x">×</span>
-      <input class="s-kg" type="number" inputmode="decimal" placeholder="kg" title="Total weight lifted — barbell: full bar load; dumbbells: one dumbbell" value="${set.weight ?? ""}">
-      <input class="s-sec" type="number" inputmode="numeric" placeholder="sec" title="Hold time in seconds — for plank, wall sit, etc." value="${set.seconds ?? ""}">
+      <span class="set-lift">
+        <input class="s-reps" type="number" inputmode="numeric" placeholder="reps" value="${set.reps ?? ""}">
+        <span class="set-x">×</span>
+        <input class="s-kg" type="number" inputmode="decimal" placeholder="kg" title="Total weight lifted — barbell: full bar load; dumbbells: one dumbbell" value="${set.weight ?? ""}">
+      </span>
+      <input class="s-sec" type="number" inputmode="numeric" placeholder="seconds held" title="Hold time in seconds — for plank, wall sit, etc." value="${set.seconds ?? ""}">
       <button class="set-del" type="button" aria-label="Remove set">✕</button>
     </div>`);
   row.querySelector(".set-del").onclick = () => { const list = row.parentElement; row.remove(); renumberSets(list); recalcWorkoutBurn(); };
@@ -1665,6 +1667,10 @@ function setRow(set = {}, n = 1) {
   row.querySelector(".s-sec").addEventListener("input", recalcWorkoutBurn);
   return row;
 }
+// timed-hold exercises log seconds instead of reps×weight
+const HOLD_EXERCISES = ["plank", "side plank", "wall sit", "hollow hold", "l-sit", "dead hang"];
+const isHoldExercise = (name) => HOLD_EXERCISES.includes((name || "").trim().toLowerCase());
+
 function exerciseBlock(ex = {}) {
   const block = el(`
     <div class="ex-block">
@@ -1677,6 +1683,11 @@ function exerciseBlock(ex = {}) {
     </div>`);
   const list = block.querySelector(".set-list");
   normalizeSets(ex).forEach((s, i) => list.appendChild(setRow(s, i + 1)));
+  // show the seconds field (and hide reps×kg) only for hold exercises like plank / wall sit
+  const nameInput = block.querySelector(".ex-name-input");
+  const refreshMode = () => block.classList.toggle("hold-mode", isHoldExercise(nameInput.value));
+  nameInput.addEventListener("input", () => { refreshMode(); recalcWorkoutBurn(); });
+  refreshMode();
   block.querySelector(".ex-del").onclick = () => { block.remove(); recalcWorkoutBurn(); };
   block.querySelector(".add-set").onclick = () => {
     const rows = list.querySelectorAll(".set-row");

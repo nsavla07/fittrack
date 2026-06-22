@@ -325,6 +325,11 @@ body {
 .ex-del:active { color: var(--danger); }
 .set-list { display: flex; flex-direction: column; gap: 8px; }
 .set-row { display: flex; align-items: center; gap: 8px; }
+.set-lift { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+/* seconds field only for hold exercises (plank, wall sit) */
+.ex-block .s-sec { display: none; }
+.ex-block.hold-mode .set-lift { display: none; }
+.ex-block.hold-mode .s-sec { display: block; flex: 1; min-width: 0; }
 .set-n { width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .set-row input { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 11px; font-size: 16px; outline: none; text-align: center; }
 .set-row input:focus { border-color: var(--accent); }
