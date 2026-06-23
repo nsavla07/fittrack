@@ -2971,7 +2971,13 @@ function bindSyncUI() {
 }
 
 // pull when returning to the app (other device may have changed things)
-document.addEventListener("visibilitychange", () => { if (!document.hidden && sbUser) pullFromCloud(); });
+document.addEventListener("visibilitychange", () => {
+  if (!sbUser) return;
+  if (document.hidden) pushToCloud();   // flush pending changes before leaving the app
+  else pullFromCloud();                 // pull the latest when returning
+});
+// while the app is open & signed in, pull every 30s so other devices' changes appear automatically
+setInterval(() => { if (!document.hidden && sbUser) pullFromCloud(); }, 30000);
 
 /* ============================================================
    BOOT
