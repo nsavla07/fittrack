@@ -1593,6 +1593,10 @@ function renderExpenses() {
       <div class="week-head"><b>Travel breakdown</b><span class="muted">${money(travelSpent)}</span></div>
       ${travelRows || `<div class="empty">No travel type set.</div>`}
     </div>` : ""}
+    <div class="btn-row">
+      <button class="primary-btn" id="add-expense-btn">+ Add Expense</button>
+      <button class="primary-btn alt2" id="add-income-btn">+ Earning</button>
+    </div>
     <div class="card">
       <div class="week-head"><b>Spends</b><span class="muted">${list.length}</span></div>
       <div class="exp-cols">
@@ -1619,6 +1623,10 @@ function renderExpenses() {
   if (!right.length) rw.appendChild(el(`<div class="empty">None</div>`));
   else right.forEach((e) => rw.appendChild(expenseCell(e)));
   if (incomes.length) incomes.forEach((e) => $("#exp-list-income").appendChild(expenseCell(e)));
+
+  // buttons are re-rendered with the body, so (re)attach their handlers each time
+  $("#add-expense-btn").onclick = openAddExpense;
+  $("#add-income-btn").onclick = openAddIncome;
 }
 
 function expenseCell(e) {
@@ -2424,7 +2432,7 @@ $("#e-cat-seg").querySelectorAll("button").forEach((b) => {
   b.onclick = () => setExpCategory(b.dataset.cat);
 });
 
-$("#add-expense-btn").onclick = () => {
+function openAddExpense() {
   editingExpenseId = null;
   $("#e-amount").value = ""; $("#e-note").value = "";
   // default the date to the month you're viewing, so adding to past months is easy
@@ -2473,7 +2481,7 @@ $("#save-expense").onclick = () => {
 
 /* ---------- earning (income) modal ---------- */
 let editingIncomeId = null;
-$("#add-income-btn").onclick = () => {
+function openAddIncome() {
   editingIncomeId = null;
   $("#i-amount").value = ""; $("#i-note").value = "";
   const today = new Date();
