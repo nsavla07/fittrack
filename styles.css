@@ -290,6 +290,7 @@ body {
 .cat-name .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .cat-amt { font-size: 15px; font-weight: 700; white-space: nowrap; }
 .cat-amt small { color: var(--muted); font-weight: 500; font-size: 12px; margin-left: 4px; }
+.cat-sub { font-size: 12px; margin: 2px 0 6px; }
 .cat-bar { height: 9px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
 .cat-bar span { display: block; height: 100%; border-radius: 5px; transition: width .5s ease; }
 .sub-row { display: flex; justify-content: space-between; font-size: 14px; padding: 9px 2px; border-bottom: 1px solid var(--line); }

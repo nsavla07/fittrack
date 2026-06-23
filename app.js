@@ -1560,13 +1560,17 @@ function renderExpenses() {
   });
 
   const catRows = EXPENSE_CATEGORIES.map((c) => {
-    const amt = byCat[c] || 0;
-    const pct = spent > 0 ? Math.round((amt / spent) * 100) : 0;
+    const gross = byCat[c] || 0;
+    // earnings are applied against Randoms, so it shows the final net (spent − earned)
+    const isRandoms = c === "Randoms" && earned > 0;
+    const amt = isRandoms ? gross - earned : gross;
+    const pct = spent > 0 ? Math.round((Math.max(gross, 0) / spent) * 100) : 0;
     return `<div class="cat-row">
         <div class="cat-top">
-          <span class="cat-name"><i class="dot" style="background:${CAT_COLORS[c]}"></i>${c}</span>
+          <span class="cat-name"><i class="dot" style="background:${CAT_COLORS[c]}"></i>${c}${isRandoms ? " (net)" : ""}</span>
           <span class="cat-amt">${money(amt)}</span>
         </div>
+        ${isRandoms ? `<div class="cat-sub muted">${money(gross)} spent − ${money(earned)} earned</div>` : ""}
         <div class="cat-bar"><span style="width:${pct}%;background:${CAT_COLORS[c]}"></span></div>
       </div>`;
   }).join("");
