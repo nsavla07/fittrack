@@ -751,12 +751,30 @@ function load() {
 function migrateGoals(g) {
   if (g && g.waterGoal === 2500) g.waterGoal = 3000; // bump the old 2.5 L default to 3 L
 }
+// older walk logs auto-filled a duration from the step count; strip that so a
+// raw daily-step entry no longer shows as a timed walk (steps & kcal are kept).
+// only clears minutes that exactly match the old steps→minutes formula.
+function migrateCardioSteps(data) {
+  let changed = 0;
+  Object.values(data.days || {}).forEach((dd) => {
+    (dd.cardio || []).forEach((c) => {
+      const isWalk = /walk|hik/i.test(c.type || "");
+      const steps = +c.steps || 0, min = +c.minutes || 0;
+      if (isWalk && steps > 0 && min > 0 && min === Math.round(steps / 110)) {
+        c.minutes = 0;
+        changed++;
+      }
+    });
+  });
+  return changed;
+}
 function save() {
   localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
   if (typeof cloudOnSave === "function") cloudOnSave();
 }
 
 let DATA = load();
+if (migrateCardioSteps(DATA)) save(); // tidy past step logs that carried a derived duration
 
 /* ---------- date helpers ---------- */
 let viewDate = new Date();
