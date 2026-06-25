@@ -26,6 +26,7 @@ const TRIP_CATEGORIES = ["Travel", "Stay", "Food", "Activities", "Shopping", "Ot
 
 /* cardio activities + MET values for calorie estimation */
 const CARDIO_OPTIONS = [
+  { name: "Daily steps", met: 3.5 },
   { name: "Walking (brisk)", met: 4.3 },
   { name: "Jogging", met: 7.0 },
   { name: "Running", met: 9.8 },
@@ -2393,7 +2394,7 @@ function fillCardioSelect() {
 }
 // walking activities produce steps; ~110 steps per minute at a brisk pace
 const STEPS_PER_MIN = 110;
-const isWalkType = (name) => /walk|hik/i.test(name);
+const isWalkType = (name) => /walk|hik|step/i.test(name);
 
 function recalcCardio() {
   const o = CARDIO_OPTIONS[+$("#c-type").value] || CARDIO_OPTIONS[0];
@@ -2422,7 +2423,7 @@ $("#add-cardio-btn").onclick = () => {
   editingCardioId = null;
   fillCardioSelect();
   $("#c-type").value = "0"; $("#c-min").value = ""; $("#c-steps").value = ""; $("#c-burned").value = "";
-  $("#c-hint").textContent = "Enter minutes, or steps for a walk.";
+  $("#c-hint").textContent = "Enter your daily step count, or pick a cardio type and minutes.";
   $("#cardio-modal-title").textContent = "Log Cardio";
   openModal("#cardio-modal");
 };
