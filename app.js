@@ -163,6 +163,8 @@ const FOODS = [
   { n: "Podi dosa", unit: "dosa", base: 1, cal: 200, p: 4, c: 30, f: 7 },
   { n: "Benne podi dosa", unit: "dosa", base: 1, cal: 250, p: 5, c: 30, f: 12 },
   { n: "Benne podi masala dosa", unit: "dosa", base: 1, cal: 320, p: 6, c: 40, f: 15 },
+  { n: "Moong dosa (pesarattu)", unit: "dosa", base: 1, cal: 170, p: 9, c: 24, f: 4 },
+  { n: "Moong cheese dosa", unit: "dosa", base: 1, cal: 280, p: 14, c: 28, f: 12 },
   { n: "Podi idli", unit: "plate (4)", base: 1, cal: 180, p: 5, c: 28, f: 6 },
   { n: "Poha", unit: "bowl", base: 1, cal: 250, p: 5, c: 40, f: 8 },
   { n: "Upma", unit: "bowl", base: 1, cal: 250, p: 6, c: 38, f: 9 },
