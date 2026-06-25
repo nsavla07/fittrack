@@ -1610,6 +1610,36 @@ function expensesForMonth() {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
+// distinct recent travel expenses across all time (newest first) for one-tap repeat
+function recentTravelExpenses(limit = 6) {
+  const seen = new Set(); const out = [];
+  const sorted = [...DATA.expenses]
+    .filter((e) => e.kind !== "income" && e.category === "Travel" && +e.amount > 0)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  for (const e of sorted) {
+    const key = `${e.sub || ""}|${e.amount}|${e.note || ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(e);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+// log a copy of a past travel expense to today (or the viewed past month) in one tap
+function quickRepeatTravel(src) {
+  if (!src) return;
+  const today = new Date();
+  const date = monthKey(expenseMonth) === monthKey(today)
+    ? keyOf(today)
+    : keyOf(new Date(expenseMonth.getFullYear(), expenseMonth.getMonth(), 1));
+  DATA.expenses.push({
+    id: uid(), date, amount: +src.amount, kind: "expense",
+    category: "Travel", sub: src.sub || null, note: src.note || "",
+  });
+  save(); renderExpenses(); haptic();
+  toast(`Added ${src.sub || "Travel"} ${money(src.amount)}`);
+}
+
 const CAT_COLORS = { Travel: "var(--accent)", Randoms: "var(--carbs)", Sports: "var(--accent-2)" };
 
 function renderExpenses() {
@@ -1645,6 +1675,7 @@ function renderExpenses() {
       </div>`;
   }).join("");
 
+  const repeats = recentTravelExpenses();
   const travelSpent = byCat.Travel || 0;
   const travelRows = TRAVEL_SUBS.filter((s) => byTravel[s] > 0)
     .map((s) => `<div class="sub-row"><span>${s}</span><b>${money(byTravel[s])}</b></div>`).join("");
@@ -1662,6 +1693,12 @@ function renderExpenses() {
     ${travelSpent > 0 ? `<div class="card">
       <div class="week-head"><b>Travel breakdown</b><span class="muted">${money(travelSpent)}</span></div>
       ${travelRows || `<div class="empty">No travel type set.</div>`}
+    </div>` : ""}
+    ${repeats.length ? `<div class="card">
+      <div class="week-head"><b>Repeat travel</b><span class="muted">tap to add today</span></div>
+      <div class="repeat-row">
+        ${repeats.map((e, i) => `<button type="button" class="chip-recent" data-i="${i}">${escapeHtml(e.sub || "Travel")} ${money(e.amount)}${e.note ? ` <small>${escapeHtml(e.note)}</small>` : ""}</button>`).join("")}
+      </div>
     </div>` : ""}
     <div class="btn-row">
       <button class="primary-btn" id="add-expense-btn">+ Add Expense</button>
@@ -1697,6 +1734,10 @@ function renderExpenses() {
   // buttons are re-rendered with the body, so (re)attach their handlers each time
   $("#add-expense-btn").onclick = openAddExpense;
   $("#add-income-btn").onclick = openAddIncome;
+  // one-tap repeat for recent travel expenses
+  $("#expenses-body").querySelectorAll(".repeat-row .chip-recent").forEach((b) => {
+    b.onclick = () => quickRepeatTravel(repeats[+b.dataset.i]);
+  });
 }
 
 function expenseCell(e) {
