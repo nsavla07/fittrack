@@ -2391,12 +2391,10 @@ function recalcCardio() {
       ? `≈ ${est} kcal · ${min} min ≈ ${Math.round(min * STEPS_PER_MIN).toLocaleString()} steps (both counted)`
       : `≈ ${est} kcal from ${min} min`;
   } else if (steps) {
-    $("#c-hint").textContent = walk
-      ? `≈ ${est} kcal · ${steps.toLocaleString()} steps ≈ ${Math.round(steps / STEPS_PER_MIN)} min (both counted)`
-      : `≈ ${est} kcal from ${steps.toLocaleString()} steps`;
+    $("#c-hint").textContent = `≈ ${est} kcal from ${steps.toLocaleString()} steps`;
   } else {
     $("#c-hint").textContent = walk
-      ? "Enter minutes OR steps — we'll fill in the other for you."
+      ? "Enter steps for a walk, or minutes (minutes also add step credit)."
       : "Enter minutes (or steps for a walk).";
   }
 }
@@ -2450,11 +2448,9 @@ $("#save-cardio").onclick = () => {
   let min = +$("#c-min").value || 0;
   let steps = +$("#c-steps").value || 0;
   if (!min && !steps) { closeModal("#cardio-modal"); return; }
-  // for walks, fill in whichever field is missing so steps AND cardio minutes both get credit
-  if (isWalkType(o.name)) {
-    if (min && !steps) steps = Math.round(min * STEPS_PER_MIN);
-    else if (steps && !min) min = Math.round(steps / STEPS_PER_MIN);
-  }
+  // for walks, a duration also earns step credit, but raw steps stay as steps
+  // (we don't invent a duration from them)
+  if (isWalkType(o.name) && min && !steps) steps = Math.round(min * STEPS_PER_MIN);
   const burned = +$("#c-burned").value || (min ? estimateCardioKcal(o.met, min) : estimateStepKcal(steps));
   const fields = { type: o.name, minutes: min, steps, burned };
   const cardio = dayData().cardio;
