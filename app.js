@@ -2081,14 +2081,25 @@ function recentFoods(limit = 8) {
 }
 
 function fillFromRecent(m) {
-  selectedFood = null;
-  $("#f-qty-wrap").classList.add("hidden");
+  // treat the amount you logged last time as one portion, so the quantity box
+  // can scale it up or down (½ · 1 · 2 …) just like picking from the food list
+  selectedFood = {
+    n: m.name || "",
+    unit: "serving",
+    base: 1,
+    cal: m.calories || 0,
+    p: m.protein || 0,
+    c: m.carbs || 0,
+    f: m.fat || 0,
+  };
   $("#f-name").value = m.name || "";
-  $("#f-cal").value = Math.round(m.calories || 0);
-  $("#f-protein").value = m.protein || 0;
-  $("#f-carbs").value = m.carbs || 0;
-  $("#f-fat").value = m.fat || 0;
+  $("#f-qty").value = 1;
+  $("#f-unit").textContent = foodQtyLabel(selectedFood);
+  $("#f-qty-wrap").classList.remove("hidden");
+  $("#f-portions").classList.remove("hidden");
+  $("#f-portions").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.f === "1"));
   $("#f-search").value = ""; $("#f-results").innerHTML = "";
+  recalcFood();
   haptic();
 }
 
